@@ -699,11 +699,6 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <!-- Primeiro acesso: criar senha -->
     <div id="collab-criar-campos" style="display:none;text-align:left;">
       <div class="form-group">
-        <label>Seu CPF</label>
-        <input type="text" id="collab-cpf-input" placeholder="000.000.000-00" maxlength="14" inputmode="numeric" autocomplete="off"
-          oninput="this.value=mascaraCPF(this.value)">
-      </div>
-      <div class="form-group" style="margin-top:10px;">
         <label>Crie uma senha</label>
         <input type="password" id="collab-nova-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
       </div>
@@ -1081,7 +1076,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     </div>
     <div class="card" id="dv-link-card" style="margin-bottom:16px;">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Link do Colaborador</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Envie este link ao colaborador. No primeiro acesso ele confirma o CPF e cria a própria senha:</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Envie este link ao colaborador. No primeiro acesso ele cria a própria senha:</div>
       <div class="link-box">
         <span class="link-text" id="dv-link"></span>
         <button class="btn btn-sm btn-primary" onclick="copiarLink()">🔗 Enviar link</button>
@@ -2612,8 +2607,8 @@ async function mostrarLink(id) {
   }
 
   const statusHtml = temSenha
-    ? `<div class="alert alert-success" style="margin:14px 0 0;font-size:12px;">🔒 O colaborador já criou a senha dele — só ele sabe. Se ele esquecer, use <strong>Redefinir senha</strong>: no próximo acesso ele cria outra, confirmando o CPF.</div>`
-    : `<div class="alert alert-info" style="margin:14px 0 0;font-size:12px;">O colaborador ainda não criou a senha. No primeiro acesso ele confirma o CPF e cria a própria senha. Depois disso, o link só abre com ela.</div>`;
+    ? `<div class="alert alert-success" style="margin:14px 0 0;font-size:12px;">🔒 O colaborador já criou a senha dele — só ele sabe. Se ele esquecer, use <strong>Redefinir senha</strong>: no próximo acesso ele cria outra.</div>`
+    : `<div class="alert alert-info" style="margin:14px 0 0;font-size:12px;">O colaborador ainda não criou a senha. No primeiro acesso ele cria a própria senha. Depois disso, o link só abre com ela.</div>`;
 
   const btnReset = (temSenha && !usuarioSomenteVisualizacao)
     ? `<button class="btn btn-outline" onclick="redefinirSenhaColab('${id}')">🔑 Redefinir senha</button>` : '';
@@ -2630,7 +2625,7 @@ async function mostrarLink(id) {
 
 async function redefinirSenhaColab(id) {
   if (bloquearSeVisualizacao('redefinir senhas')) return;
-  if (!confirm('Redefinir a senha deste colaborador?\n\nA senha atual deixa de funcionar e, no próximo acesso, ele cria uma nova confirmando o CPF.')) return;
+  if (!confirm('Redefinir a senha deste colaborador?\n\nA senha atual deixa de funcionar e, no próximo acesso, ele cria uma nova.')) return;
   showLoading('Redefinindo senha...');
   const { error } = await sb.rpc('colab_resetar_senha', { p_colab_id: id });
   hideLoading();
@@ -2642,7 +2637,7 @@ async function redefinirSenhaColab(id) {
 function copiarLinkModal() {
   const link = window._linkParaCopiar;
   if(!link) return;
-  const texto = `Olá! Use o link abaixo para enviar seus documentos:\n${link}\n\nNo primeiro acesso, confirme seu CPF e crie uma senha pessoal. Ela será pedida nos próximos acessos — não compartilhe com ninguém.`;
+  const texto = `Olá! Use o link abaixo para enviar seus documentos:\n${link}\n\nNo primeiro acesso, crie uma senha pessoal. Ela será pedida nos próximos acessos — não compartilhe com ninguém.`;
   if(navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(texto).then(() => alert('Mensagem copiada! Cole no WhatsApp para enviar ao colaborador.')).catch(() => prompt('Copie o texto abaixo (Ctrl+C):', texto));
   } else {
@@ -2985,9 +2980,8 @@ function renderDocRowsCollab(containerId, docList, docs, colabId) {
 
 function mensagemErroSenha(codigo) {
   switch (codigo) {
-    case 'SENHA_INVALIDA': return 'Senha incorreta. Após 5 tentativas erradas o acesso fica bloqueado por 15 minutos.';
-    case 'CPF_INVALIDO':   return 'O CPF não confere com o seu cadastro. Após 5 tentativas erradas o acesso fica bloqueado por 15 minutos.';
-    case 'BLOQUEADO':      return 'Muitas tentativas incorretas. Aguarde 15 minutos e tente de novo.';
+    case 'SENHA_INVALIDA': return 'Senha incorreta. Após 5 tentativas erradas o acesso fica bloqueado por 3 horas.';
+    case 'BLOQUEADO':      return 'Muitas tentativas incorretas. O acesso foi bloqueado por 3 horas. Tente de novo depois desse prazo.';
     case 'SENHA_CURTA':    return 'A senha precisa ter pelo menos 6 caracteres.';
     case 'SEM_SENHA':      return 'Você ainda não criou sua senha. Crie uma para continuar.';
     case 'INVALIDO':       return 'Link inválido. Peça ao RH um novo link.';
@@ -3011,7 +3005,7 @@ async function mostrarTelaSenhaColab(erro) {
 
   document.getElementById('collab-senha-titulo').textContent = criar ? 'Crie sua senha' : 'Acesso protegido';
   document.getElementById('collab-senha-sub').textContent = criar
-    ? 'Primeiro acesso: confirme seu CPF e crie uma senha. Ela será pedida sempre que você abrir este link.'
+    ? 'Primeiro acesso: crie uma senha. Ela será pedida sempre que você abrir este link.'
     : 'Digite a senha que você criou para acessar seus documentos.';
   document.getElementById('collab-criar-campos').style.display = criar ? '' : 'none';
   document.getElementById('collab-entrar-campos').style.display = criar ? 'none' : '';
@@ -3020,12 +3014,12 @@ async function mostrarTelaSenhaColab(erro) {
     ? 'Não compartilhe sua senha. Ela protege seus documentos caso alguém tenha acesso a este link.'
     : 'Esqueceu a senha? Peça ao RH para redefinir; no próximo acesso você cria uma nova.';
 
-  ['collab-cpf-input','collab-nova-senha','collab-nova-senha2','collab-senha-input'].forEach(id => {
+  ['collab-nova-senha','collab-nova-senha2','collab-senha-input'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('collab-senha-msg').innerHTML = erro ? `<div class="alert alert-error">${erro}</div>` : '';
   document.getElementById('collab-senha-screen').style.display = 'flex';
-  setTimeout(() => document.getElementById(criar ? 'collab-cpf-input' : 'collab-senha-input').focus(), 50);
+  setTimeout(() => document.getElementById(criar ? 'collab-nova-senha' : 'collab-senha-input').focus(), 50);
 }
 
 async function confirmarSenhaColab() {
@@ -3033,15 +3027,13 @@ async function confirmarSenhaColab() {
   const erro = t => { msg.innerHTML = `<div class="alert alert-error">${t}</div>`; };
 
   if (modoSenhaColab === 'criar') {
-    const cpf = document.getElementById('collab-cpf-input').value.trim();
     const s1  = document.getElementById('collab-nova-senha').value;
     const s2  = document.getElementById('collab-nova-senha2').value;
-    if (cpf.replace(/\D/g, '').length !== 11) return erro('Digite seu CPF completo.');
     if (s1.length < 6) return erro('A senha precisa ter pelo menos 6 caracteres.');
     if (s1 !== s2) return erro('As senhas não são iguais.');
 
     showLoading('Criando sua senha...');
-    const { data, error } = await sb.rpc('colab_criar_senha', { p_colab_id: currentCollabUrlId, p_cpf: cpf, p_senha: s1 });
+    const { data, error } = await sb.rpc('colab_criar_senha', { p_colab_id: currentCollabUrlId, p_senha: s1 });
     hideLoading();
     if (error) return erro('Erro ao criar a senha: ' + error.message);
     if (!data || !data.ok) {
