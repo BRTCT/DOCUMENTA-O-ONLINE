@@ -689,6 +689,24 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
   </div>
 </div>
 
+<!-- ===== SENHA DO COLABORADOR ===== -->
+<div id="collab-senha-screen" class="login-screen" style="display:none;">
+  <div class="login-card">
+    <div style="width:52px;height:52px;background:var(--green-dark);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px;">🔒</div>
+    <div class="login-title">Acesso protegido</div>
+    <div class="login-sub">Digite a senha que o RH enviou junto com este link para acessar seus documentos.</div>
+    <div class="form-group" style="text-align:left;">
+      <label>Senha de acesso</label>
+      <input type="password" id="collab-senha-input" placeholder="••••••" autocomplete="off"
+        style="letter-spacing:3px;font-size:16px;text-transform:uppercase;"
+        onkeydown="if(event.key==='Enter')confirmarSenhaColab()">
+    </div>
+    <div id="collab-senha-msg" style="margin-top:10px;"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;justify-content:center;" onclick="confirmarSenhaColab()">Acessar documentos</button>
+    <div style="margin-top:14px;font-size:11px;color:var(--text-muted);line-height:1.5;">Não recebeu a senha? Fale com o RH responsável pelo seu processo.</div>
+  </div>
+</div>
+
 <!-- ===== COLLAB VIEW (acesso pelo link) ===== -->
 <div id="collab-screen" style="display:none;">
   <div class="collab-header">
@@ -1041,10 +1059,10 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     </div>
     <div class="card" id="dv-link-card" style="margin-bottom:16px;">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Link do Colaborador</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Compartilhe este link com o colaborador para que ele envie os documentos:</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Envie este link junto com a senha de acesso para o colaborador enviar os documentos:</div>
       <div class="link-box">
         <span class="link-text" id="dv-link"></span>
-        <button class="btn btn-sm btn-primary" onclick="copiarLink()">Copiar</button>
+        <button class="btn btn-sm btn-primary" onclick="copiarLink()">🔑 Link e senha</button>
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-sm btn-outline" onclick="editarColaboradorAtual()">✏️ Editar dados</button>
@@ -1140,6 +1158,7 @@ let currentColab = null;
 let editingId = null;
 let isCollabView = false;
 let currentCollabUrlId = null;
+let senhaColabAtual = null; // senha digitada pelo colaborador
 
 // =============================================
 // INIT
@@ -2558,31 +2577,80 @@ async function excluirColaborador() {
 function getLinkColab(id) {
   return window.location.origin + window.location.pathname + '#colab/' + id;
 }
-function mostrarLink(id) {
+function gerarSenhaAleatoria(tam = 6) {
+  // sem 0/O/1/I para evitar confusão ao digitar
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const arr = new Uint32Array(tam);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, n => chars[n % chars.length]).join('');
+}
+
+async function mostrarLink(id, gerarNova = false) {
   const link = getLinkColab(id);
   window._linkParaCopiar = link;
+  window._senhaParaCopiar = null;
+
+  showLoading('Verificando senha do link...');
+  const { data: temSenha, error: errTem } = await sb.rpc('colab_tem_senha', { p_colab_id: id });
+  if (errTem) {
+    hideLoading();
+    alert('Erro ao verificar a senha do link. Confirme que o SQL de senhas foi executado no Supabase.\n\n' + errTem.message);
+    return;
+  }
+
+  let senhaNova = null;
+  const precisaGerar = !temSenha || gerarNova;
+  if (precisaGerar && !usuarioSomenteVisualizacao) {
+    senhaNova = gerarSenhaAleatoria(6);
+    const { error } = await sb.rpc('colab_definir_senha', { p_colab_id: id, p_senha: senhaNova });
+    if (error) { hideLoading(); alert('Erro ao gerar senha: ' + error.message); return; }
+  }
+  hideLoading();
+  window._senhaParaCopiar = senhaNova;
+
+  let senhaHtml;
+  if (senhaNova) {
+    senhaHtml = `
+      <div style="margin-top:16px;font-size:12px;font-weight:600;color:var(--text-muted);">Senha de acesso</div>
+      <div style="margin-top:6px;padding:12px;background:var(--green-light);border:1px solid #9fe1cb;border-radius:8px;text-align:center;font-family:monospace;font-size:24px;font-weight:800;letter-spacing:6px;color:var(--green-dark);user-select:all;">${senhaNova}</div>
+      <div class="alert alert-warning" style="margin:10px 0 0;font-size:12px;">Envie agora: por segurança, a senha não aparece de novo. Se o colaborador perder, gere uma nova (a anterior para de funcionar).</div>`;
+  } else if (temSenha) {
+    senhaHtml = `<div class="alert alert-info" style="margin:14px 0 0;font-size:12px;">🔒 Este link já tem senha. Por segurança ela não é exibida de novo. Se o colaborador perdeu a senha, gere uma nova — a anterior para de funcionar.</div>`;
+  } else {
+    senhaHtml = `<div class="alert alert-warning" style="margin:14px 0 0;font-size:12px;">Este link ainda não tem senha. Peça a um usuário com permissão de edição para gerar.</div>`;
+  }
+
+  const btnGerar = usuarioSomenteVisualizacao ? '' :
+    `<button class="btn btn-outline" onclick="if(confirm('Gerar nova senha? A senha atual deixará de funcionar.')) mostrarLink('${id}', true)">🔑 Gerar nova senha</button>`;
+
   criarModal('Link do Colaborador',
-    `<div style="font-size:13px;margin-bottom:10px;">Compartilhe este link com o colaborador para que envie os documentos:</div>
+    `<div style="font-size:13px;margin-bottom:10px;">Envie o link e a senha ao colaborador. Sem a senha, ninguém acessa os documentos.</div>
     <div class="link-box" style="user-select:all;word-break:break-all;"><span style="font-size:12px;font-family:monospace;">${link}</span></div>
-    <div style="margin-top:8px;font-size:12px;color:var(--text-muted);">Funciona em qualquer navegador, celular ou computador.</div>`,
-    `<button class="btn btn-primary" onclick="copiarLinkModal()">Copiar link</button>
+    ${senhaHtml}`,
+    `<button class="btn btn-primary" onclick="copiarLinkModal()">${senhaNova ? 'Copiar link + senha' : 'Copiar link'}</button>
+    ${btnGerar}
     <button class="btn btn-outline" onclick="fecharModal()">Fechar</button>`
   );
 }
+
 function copiarLinkModal() {
   const link = window._linkParaCopiar;
   if(!link) return;
+  const senha = window._senhaParaCopiar;
+  const texto = senha
+    ? `Olá! Use o link abaixo para enviar seus documentos:\n${link}\n\nSenha de acesso: ${senha}\n\nNão compartilhe esta senha com ninguém.`
+    : link;
+  const ok = senha ? 'Link e senha copiados! Cole no WhatsApp para enviar ao colaborador.' : 'Link copiado!';
   if(navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(link).then(() => alert('Link copiado! Cole no WhatsApp para enviar ao colaborador.')).catch(() => {
-      prompt('Copie o link abaixo (Ctrl+C):', link);
-    });
+    navigator.clipboard.writeText(texto).then(() => alert(ok)).catch(() => prompt('Copie o texto abaixo (Ctrl+C):', texto));
   } else {
-    prompt('Copie o link abaixo (Ctrl+C):', link);
+    prompt('Copie o texto abaixo (Ctrl+C):', texto);
   }
 }
+
 function copiarLink() {
   if(!currentColab) return;
-  navigator.clipboard.writeText(getLinkColab(currentColab.id)).then(()=>alert('Link copiado!'));
+  mostrarLink(currentColab.id);
 }
 
 // =============================================
@@ -2832,24 +2900,44 @@ async function recarregarDocs() {
 // VISÃO DO COLABORADOR
 // =============================================
 async function carregarVisaoColaborador(colabId) {
-  const url = localStorage.getItem('sb_url') || SB_URL_DEFAULT;
-  const key = localStorage.getItem('sb_key') || SB_KEY_DEFAULT;
-  const cleanUrl2 = url.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
-  sb = supabase.createClient(cleanUrl2, key, {auth:{persistSession:true,autoRefreshToken:true}});
+  if (!senhaColabAtual) {
+    try { senhaColabAtual = sessionStorage.getItem('colab_senha_' + colabId) || null; } catch (e) {}
+  }
+  if (!senhaColabAtual) { mostrarTelaSenhaColab(); return; }
+
   showLoading('Carregando checklist...');
-  const { data: colab } = await sb.from('colaboradores').select('*').eq('id', colabId).single();
-  const { data: docs } = await sb.from('documentos').select('*').eq('colaborador_id', colabId);
+  const { data: resp, error: errAcesso } = await sb.rpc('colab_acessar', {
+    p_colab_id: colabId,
+    p_senha: senhaColabAtual
+  });
   hideLoading();
+
+  if (errAcesso) {
+    senhaColabAtual = null;
+    mostrarTelaSenhaColab('Não foi possível validar o acesso: ' + errAcesso.message);
+    return;
+  }
+  if (!resp || !resp.ok) {
+    senhaColabAtual = null;
+    try { sessionStorage.removeItem('colab_senha_' + colabId); } catch (e) {}
+    mostrarTelaSenhaColab(mensagemErroSenha(resp && resp.erro));
+    return;
+  }
+  try { sessionStorage.setItem('colab_senha_' + colabId, senhaColabAtual); } catch (e) {}
+
+  const colab = resp.colaborador;
+  const docs = resp.documentos || [];
   if(!colab) { document.body.innerHTML='<div style="text-align:center;padding:60px;color:#666;">Colaborador não encontrado. Verifique o link.</div>'; return; }
+  document.getElementById('collab-senha-screen').style.display = 'none';
   document.getElementById('collab-screen').style.display = '';
   document.getElementById('cv-nome').textContent = colab.nome;
   document.getElementById('cv-meta').textContent = colab.funcao + ' · ' + colab.centro_custo;
   document.title = 'Documentação – ' + colab.nome;
-  docsMap[colabId] = docs || [];
+  docsMap[colabId] = docs;
   document.getElementById('cv-docs').innerHTML = '<div class="section-label" style="margin:0 0 10px;">Documentos Pessoais</div>';
-  renderDocRowsCollab('cv-docs', DOCS.filter(d=>!d.dep), docs||[], colabId);
+  renderDocRowsCollab('cv-docs', DOCS.filter(d=>!d.dep), docs, colabId);
   document.getElementById('cv-deps').innerHTML = '<div class="section-label" style="margin:16px 0 10px;">Dependentes</div>';
-  renderDocRowsCollab('cv-deps', DOCS.filter(d=>d.dep), docs||[], colabId);
+  renderDocRowsCollab('cv-deps', DOCS.filter(d=>d.dep), docs, colabId);
 }
 
 function getArquivos(st) {
@@ -2893,20 +2981,65 @@ function renderDocRowsCollab(containerId, docList, docs, colabId) {
   el.innerHTML += html;
 }
 
+function mensagemErroSenha(codigo) {
+  switch (codigo) {
+    case 'SENHA_INVALIDA': return 'Senha incorreta. Após 5 tentativas erradas o acesso fica bloqueado por 15 minutos.';
+    case 'BLOQUEADO':      return 'Muitas tentativas incorretas. Aguarde 15 minutos e tente de novo.';
+    case 'SEM_SENHA':      return 'Este link ainda não foi liberado ou é inválido. Peça ao RH um novo link com senha.';
+    default:               return 'Não foi possível validar o acesso. Tente de novo.';
+  }
+}
+
+function mostrarTelaSenhaColab(erro) {
+  document.getElementById('collab-screen').style.display = 'none';
+  document.getElementById('collab-senha-screen').style.display = 'flex';
+  document.getElementById('collab-senha-msg').innerHTML = erro ? `<div class="alert alert-error">${erro}</div>` : '';
+  const inp = document.getElementById('collab-senha-input');
+  inp.value = '';
+  setTimeout(() => inp.focus(), 50);
+}
+
+async function confirmarSenhaColab() {
+  const inp = document.getElementById('collab-senha-input');
+  const senha = (inp.value || '').trim().toUpperCase();
+  if (!senha) {
+    document.getElementById('collab-senha-msg').innerHTML = '<div class="alert alert-error">Digite a senha.</div>';
+    return;
+  }
+  senhaColabAtual = senha;
+  await carregarVisaoColaborador(currentCollabUrlId);
+}
+
+// Grava a lista de arquivos de um documento via função protegida por senha
+async function salvarDocColab(colabId, docId, arquivos) {
+  const { data, error } = await sb.rpc('colab_salvar_doc', {
+    p_colab_id: colabId,
+    p_senha: senhaColabAtual,
+    p_doc_id: docId,
+    p_arquivo_url: arquivos.length ? JSON.stringify(arquivos) : null,
+    p_arquivo_nome: arquivos.length ? arquivos[0].nome : null,
+    p_status: arquivos.length ? 'analysis' : 'none'
+  });
+  if (error) { alert('Erro ao salvar: ' + error.message); return false; }
+  if (!data || !data.ok) {
+    if (data && ['SENHA_INVALIDA', 'BLOQUEADO', 'SEM_SENHA'].includes(data.erro)) {
+      senhaColabAtual = null;
+      try { sessionStorage.removeItem('colab_senha_' + colabId); } catch (e) {}
+    }
+    alert(mensagemErroSenha(data && data.erro));
+    return false;
+  }
+  return true;
+}
+
 async function removerArquivoCollab(colabId, docId, idx) {
   if(!confirm('Remover este arquivo?')) return;
-  const docs = docsMap[colabId]||[];
-  const existing = docs.find(x=>x.doc_id===docId);
+  const existing = (docsMap[colabId]||[]).find(x=>x.doc_id===docId);
   if(!existing) return;
   const arquivos = getArquivos(existing);
   arquivos.splice(idx,1);
-  const newUrl = arquivos.length ? JSON.stringify(arquivos) : null;
-  const newNome = arquivos.length ? arquivos[0].nome : null;
-  const newStatus = arquivos.length ? 'analysis' : 'none';
   showLoading('Removendo...');
-  await sb.from('documentos').update({arquivo_url:newUrl,arquivo_nome:newNome,status:newStatus}).eq('id',existing.id);
-  const {data} = await sb.from('documentos').select('*').eq('colaborador_id',colabId);
-  docsMap[colabId]=data||[];
+  await salvarDocColab(colabId, docId, arquivos);
   hideLoading();
   await carregarVisaoColaborador(colabId);
 }
@@ -2955,26 +3088,41 @@ async function converterHeicSeNecessario(file) {
   }
 }
 
+function nomeAleatorio() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
+
 async function uploadArquivo(colabId, docId, file) {
   showLoading('Enviando arquivo...');
-  // Converte HEIC → JPEG antes de qualquer coisa
   file = await converterHeicSeNecessario(file);
   showLoading('Enviando arquivo...');
+
+  const MAX = 6;
+  const existing = (docsMap[colabId]||[]).find(x=>x.doc_id===docId);
+  const arquivosAtuais = existing ? getArquivos(existing) : [];
+  if (arquivosAtuais.length >= MAX) { hideLoading(); alert(`Máximo de ${MAX} arquivos por documento atingido.`); return; }
+
   const ext = file.name.split('.').pop();
-  const path = `${colabId}/${docId}-${Date.now()}.${ext}`;
-  const { error: upErr } = await sb.storage.from('documentos').upload(path, file, {upsert:true});
+  // nome com parte aleatória: impede adivinhar o endereço do arquivo
+  const path = `${colabId}/${docId}-${Date.now()}-${nomeAleatorio()}.${ext}`;
+  const { error: upErr } = await sb.storage.from('documentos').upload(path, file, {upsert:false});
   if(upErr) { hideLoading(); alert('Erro no upload: '+upErr.message); return; }
   const { data: { publicUrl } } = sb.storage.from('documentos').getPublicUrl(path);
-  const novoArq = {url:publicUrl, nome:file.name};
-  const existing = (docsMap[colabId]||[]).find(x=>x.doc_id===docId);
+  arquivosAtuais.push({url:publicUrl, nome:file.name});
+
+  // Colaborador (link público): grava pela função protegida por senha
+  if (isCollabView) {
+    await salvarDocColab(colabId, docId, arquivosAtuais);
+    hideLoading();
+    return;
+  }
+
+  // Recrutador (logado): grava direto
   if(existing) {
-    const arquivosAtuais = getArquivos(existing);
-    const MAX = 6;
-    if(arquivosAtuais.length >= MAX) { hideLoading(); alert(`Máximo de ${MAX} arquivos por documento atingido.`); return; }
-    arquivosAtuais.push(novoArq);
     await sb.from('documentos').update({status:'analysis',arquivo_url:JSON.stringify(arquivosAtuais),arquivo_nome:arquivosAtuais[0].nome,na:false}).eq('id',existing.id);
   } else {
-    await sb.from('documentos').insert({colaborador_id:colabId,doc_id:docId,status:'analysis',arquivo_url:JSON.stringify([novoArq]),arquivo_nome:file.name,na:false});
+    await sb.from('documentos').insert({colaborador_id:colabId,doc_id:docId,status:'analysis',arquivo_url:JSON.stringify(arquivosAtuais),arquivo_nome:file.name,na:false});
   }
   const {data} = await sb.from('documentos').select('*').eq('colaborador_id',colabId);
   docsMap[colabId]=data||[];
@@ -3291,7 +3439,7 @@ async function carregarVisaoCC(cc) {
   const ids = colabsTodos.map(c => c.id);
   let docsAll = [], fluxoAll = [];
   if (ids.length > 0) {
-    const { data: d } = await sb.from('documentos').select('*').in('colaborador_id', ids);
+    const { data: d } = await sb.from('documentos').select('colaborador_id,doc_id,status,na').in('colaborador_id', ids);
     docsAll = d || [];
     const { data: f } = await sb.from('fluxo_pipeline').select('*').in('colaborador_id', ids);
     fluxoAll = f || [];
@@ -3517,7 +3665,7 @@ async function carregarVisaoRP(pastaRpId) {
   const ids = colabs.map(c => c.id);
   let docsAll = [], fluxoAll = [];
   if (ids.length > 0) {
-    const { data: d } = await sb.from('documentos').select('*').in('colaborador_id', ids);
+    const { data: d } = await sb.from('documentos').select('colaborador_id,doc_id,status,na').in('colaborador_id', ids);
     docsAll = d || [];
     const { data: f } = await sb.from('fluxo_pipeline').select('*').in('colaborador_id', ids);
     fluxoAll = f || [];
