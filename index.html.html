@@ -1315,12 +1315,7 @@ async function criarConta() {
   if (pass.length < 6) { msg.innerHTML='<div class="alert alert-error">A senha deve ter ao menos 6 caracteres.</div>'; return; }
   showLoading('Verificando cadastro...');
   // Verifica se o e-mail tem pré-cadastro
-  const { data: preCad, error: errCheck } = await sb
-    .from('usuarios_pre_cadastro')
-    .select('id')
-    .eq('email', email.toLowerCase())
-    .eq('ativo', true)
-    .maybeSingle();
+  const { data: preCad, error: errCheck } = await sb.rpc('pre_cadastro_autorizado', { p_email: email.toLowerCase() });
   if (errCheck) { hideLoading(); msg.innerHTML=`<div class="alert alert-error">Erro ao verificar cadastro: ${errCheck.message}</div>`; return; }
   if (!preCad) { hideLoading(); msg.innerHTML='<div class="alert alert-error">E-mail não autorizado. Solicite ao administrador que faça seu pré-cadastro.</div>'; return; }
   showLoading('Criando conta...');
@@ -1425,37 +1420,75 @@ function abrirGerenciadorUsuarios() {
   setTimeout(() => document.getElementById('ger-senha-input').focus(), 100);
 }
 
+// Mensagens das senhas do sistema (validadas no Supabase, nunca no HTML)
+function mensagemErroSistema(codigo) {
+  switch (codigo) {
+    case 'SENHA_INVALIDA': return 'Senha incorreta. Após 5 tentativas erradas o acesso fica bloqueado por 3 horas.';
+    case 'BLOQUEADO':      return 'Muitas tentativas incorretas. O acesso foi bloqueado por 3 horas.';
+    case 'SEM_SENHA':      return 'Senha ainda não configurada no Supabase. Rode o SQL de senhas do sistema.';
+    case 'NAO_AUTORIZADO': return 'Sessão expirada. Faça login novamente.';
+    case 'DADOS_INCOMPLETOS': return 'E-mail e nome são obrigatórios.';
+    default:               return 'Não foi possível validar a senha. Tente de novo.';
+  }
+}
+
+let senhaGerAtual = null; // só em memória enquanto o gerenciador está aberto
+
 function fecharGerenciador() {
+  senhaGerAtual = null;
   document.getElementById('modal-gerenciador').style.display = 'none';
 }
 
-function verificarSenhaGer() {
-  const senha = document.getElementById('ger-senha-input').value;
+async function verificarSenhaGer() {
+  const input = document.getElementById('ger-senha-input');
+  const senha = input.value;
   const msg = document.getElementById('ger-senha-msg');
-  if (senha !== 'PPO') {
-    msg.innerHTML = '<div class="alert alert-error">Senha incorreta.</div>';
-    document.getElementById('ger-senha-input').value = '';
-    document.getElementById('ger-senha-input').focus();
+  if (!senha) { msg.innerHTML = '<div class="alert alert-error">Digite a senha.</div>'; return; }
+  showLoading('Verificando senha...');
+  const { data, error } = await sb.rpc('sistema_verificar_senha', { p_chave: 'gerenciador', p_senha: senha });
+  hideLoading();
+  if (error || !data || !data.ok) {
+    msg.innerHTML = `<div class="alert alert-error">${error ? 'Erro: ' + error.message : mensagemErroSistema(data && data.erro)}</div>`;
+    input.value = '';
+    input.focus();
     return;
   }
+  senhaGerAtual = senha;
+  input.value = '';
+  msg.innerHTML = '';
   document.getElementById('ger-senha-step').style.display = 'none';
   document.getElementById('ger-painel-step').style.display = 'block';
   carregarListaUsuarios();
 }
 
+// Se a senha deixar de valer (trocada/bloqueada), volta para a tela de senha
+function tratarFalhaGer(data, error) {
+  if (error) { alert('Erro: ' + error.message); return true; }
+  if (!data || !data.ok) {
+    const codigo = data && data.erro;
+    if (['SENHA_INVALIDA','BLOQUEADO','SEM_SENHA','NAO_AUTORIZADO'].includes(codigo)) {
+      senhaGerAtual = null;
+      document.getElementById('ger-painel-step').style.display = 'none';
+      document.getElementById('ger-senha-step').style.display = 'block';
+      document.getElementById('ger-senha-msg').innerHTML = `<div class="alert alert-error">${mensagemErroSistema(codigo)}</div>`;
+    } else {
+      alert(mensagemErroSistema(codigo));
+    }
+    return true;
+  }
+  return false;
+}
+
 async function carregarListaUsuarios() {
   const lista = document.getElementById('ger-lista');
   lista.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px 0;">Carregando...</div>';
-  const { data, error } = await sb
-    .from('usuarios_pre_cadastro')
-    .select('*')
-    .order('nome');
-  if (error) {
-    // Tenta criar a tabela se não existir
-    lista.innerHTML = '<div style="text-align:center;color:var(--red-text);font-size:12px;padding:12px;">Tabela não encontrada. Adicione um usuário para criá-la automaticamente.</div>';
+  const { data: resp, error } = await sb.rpc('ger_listar', { p_senha: senhaGerAtual });
+  if (tratarFalhaGer(resp, error)) {
+    lista.innerHTML = '';
     return;
   }
-  if (!data || data.length === 0) {
+  const data = resp.usuarios || [];
+  if (data.length === 0) {
     lista.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px 0;">Nenhum usuário cadastrado.</div>';
     return;
   }
@@ -1486,16 +1519,11 @@ async function adicionarPreCadastro() {
   const msg = document.getElementById('ger-form-msg');
   if (!email || !nome) { msg.innerHTML='<div class="alert alert-error">E-mail e nome são obrigatórios.</div>'; return; }
   msg.innerHTML = '';
-  const { error } = await sb.from('usuarios_pre_cadastro').insert([{ email, nome, cc: cc||null, ativo: true, somente_visualizacao: somenteVisualizacao }]);
-  if (error) {
-    if (error.code === '42P01') {
-      // Tabela não existe, cria via RPC ou exibe instrução
-      msg.innerHTML='<div class="alert alert-error">Tabela não existe no Supabase. Crie a tabela <strong>usuarios_pre_cadastro</strong> com as colunas: id (uuid), email (text), nome (text), cc (text), ativo (bool).</div>';
-    } else {
-      msg.innerHTML=`<div class="alert alert-error">${error.message}</div>`;
-    }
-    return;
-  }
+  const { data, error } = await sb.rpc('ger_adicionar', {
+    p_senha: senhaGerAtual, p_email: email, p_nome: nome, p_cc: cc || null, p_somente_visualizacao: somenteVisualizacao
+  });
+  if (error) { msg.innerHTML = `<div class="alert alert-error">${error.message}</div>`; return; }
+  if (tratarFalhaGer(data, null)) return;
   document.getElementById('ger-novo-email').value = '';
   document.getElementById('ger-novo-nome').value = '';
   document.getElementById('ger-novo-cc').value = '';
@@ -1512,8 +1540,8 @@ async function adicionarPreCadastro() {
 
 async function removerPreCadastro(id) {
   if (!confirm('Remover este usuário da lista de pré-cadastro?')) return;
-  const { error } = await sb.from('usuarios_pre_cadastro').delete().eq('id', id);
-  if (error) { alert('Erro ao remover: ' + error.message); return; }
+  const { data, error } = await sb.rpc('ger_remover', { p_senha: senhaGerAtual, p_id: String(id) });
+  if (tratarFalhaGer(data, error)) return;
   carregarListaUsuarios();
 }
 
@@ -1541,8 +1569,8 @@ async function alternarReadonly(id, atualValor) {
   const novoValor = !atualValor;
   const label = novoValor ? 'somente visualização' : 'acesso completo';
   if (!confirm(`Alterar usuário para ${label}?`)) return;
-  const { error } = await sb.from('usuarios_pre_cadastro').update({ somente_visualizacao: novoValor }).eq('id', id);
-  if (error) { alert('Erro ao atualizar: ' + error.message); return; }
+  const { data, error } = await sb.rpc('ger_alterar_readonly', { p_senha: senhaGerAtual, p_id: String(id), p_valor: novoValor });
+  if (tratarFalhaGer(data, error)) return;
   carregarListaUsuarios();
 }
 
@@ -2670,15 +2698,17 @@ function abrirDetalheComSenha(id) {
   setTimeout(() => { const el = document.getElementById('senha-checklist'); if(el) el.focus(); }, 100);
 }
 
-function confirmarSenhaChecklist(id) {
+async function confirmarSenhaChecklist(id) {
   const input = document.getElementById('senha-checklist');
   const msg = document.getElementById('senha-checklist-msg');
   if (!input) return;
-  if (input.value === 'PPP') {
+  if (!input.value) { msg.innerHTML = '<div class="alert alert-error">Digite a senha.</div>'; return; }
+  const { data, error } = await sb.rpc('sistema_verificar_senha', { p_chave: 'checklist', p_senha: input.value });
+  if (!error && data && data.ok) {
     fecharModal();
     abrirDetalhe(id);
   } else {
-    msg.innerHTML = '<div class="alert alert-error">Senha incorreta. Tente novamente.</div>';
+    msg.innerHTML = `<div class="alert alert-error">${error ? 'Erro: ' + error.message : mensagemErroSistema(data && data.erro)}</div>`;
     input.value = '';
     input.focus();
   }
