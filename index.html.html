@@ -723,7 +723,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;font-size:11px;color:var(--text-muted);">
       <a class="help-link" href="#" onclick="resetarConfig()">⚙ Reconfigurar conexão</a>
     </div>
-    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (2) · com scanner 📷</div>
+    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (3) · com scanner 📷</div>
   </div>
 </div>
 
@@ -787,7 +787,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;padding:12px;background:var(--gray-bg);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.7;">
       Ao enviar este formulário, você concorda com o tratamento de seus dados pessoais em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>, exclusivamente para fins relacionados a este atendimento.
     </div>
-    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (2) · com scanner 📷</div>
+    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (3) · com scanner 📷</div>
   </div>
 </div>
 
@@ -3155,6 +3155,43 @@ async function removerArquivoCollab(colabId, docId, idx) {
 }
 
 // =============================================
+// DIAGNÓSTICO DO SCANNER (painel aparece só com ?debug=1 no link)
+// Guarda o registro na sessão, então sobrevive se o celular recarregar a página.
+// =============================================
+const SCAN_DEBUG = /[?&]debug=1/.test(location.search);
+function scanLog(msg) {
+  try {
+    const arr = JSON.parse(sessionStorage.getItem('scan_log') || '[]');
+    const t = new Date(); const hh = n => String(n).padStart(2, '0');
+    arr.push(hh(t.getHours()) + ':' + hh(t.getMinutes()) + ':' + hh(t.getSeconds()) + ' ' + msg);
+    sessionStorage.setItem('scan_log', JSON.stringify(arr.slice(-60)));
+  } catch (e) {}
+  scanLogDesenhar();
+}
+function scanLogDesenhar() {
+  if (!SCAN_DEBUG || !document.body) return;
+  let el = document.getElementById('scan-debug');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'scan-debug';
+    el.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;max-height:38vh;overflow:auto;z-index:5000;background:rgba(0,0,0,0.85);color:#9fe1cb;font:10.5px/1.45 monospace;padding:8px 10px;border-radius:8px;white-space:pre-wrap;word-break:break-word;';
+    document.body.appendChild(el);
+  }
+  let linhas = [];
+  try { linhas = JSON.parse(sessionStorage.getItem('scan_log') || '[]'); } catch (e) {}
+  el.innerHTML = '<div style="color:#fff;font-weight:bold;margin-bottom:4px;">DIAGNÓSTICO <button onclick="sessionStorage.removeItem(\'scan_log\');scanLogDesenhar()" style="float:right;font-size:10px;">limpar</button></div>' +
+    linhas.map(l => l.replace(/</g, '&lt;')).join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+window.addEventListener('error', e => scanLog('ERRO JS: ' + e.message + ' (linha ' + e.lineno + ')'));
+window.addEventListener('unhandledrejection', e => scanLog('ERRO (promise): ' + ((e.reason && e.reason.message) || e.reason)));
+window.addEventListener('pagehide', () => scanLog('página escondida/fechando'));
+document.addEventListener('visibilitychange', () => scanLog('visibilidade: ' + document.visibilityState));
+window.addEventListener('DOMContentLoaded', () => {
+  scanLog('PÁGINA CARREGADA · versão 28/10 (3) · ' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 110));
+});
+
+// =============================================
 // SCANNER DE DOCUMENTOS (modo escanear do colaborador)
 // Detecta as bordas, endireita a perspectiva e melhora a imagem
 // =============================================
@@ -3564,6 +3601,7 @@ function scanOcupado(txt) {
 
 // ---------- Abrir o scanner ----------
 function abrirCameraCollab(colabId, docId) {
+  scanLog('toque no 📷 (doc ' + docId + ')');
   // a detecção só começa a baixar depois da foto: baixar com a câmera aberta pode fazer o celular recarregar a página
   scanEscolherArquivo(colabId, docId, 'camera');
 }
@@ -3580,15 +3618,18 @@ function scanEscolherArquivo(colabId, docId, origem) {
   document.body.appendChild(input); // no iPhone, um campo fora da página pode não avisar a foto escolhida
   input.addEventListener('change', () => {
     const f = input.files && input.files[0];
+    scanLog('foto recebida: ' + (f ? (f.type || 'sem tipo') + ' · ' + Math.round(f.size / 1024) + ' KB · ' + f.name : 'NENHUM arquivo'));
     setTimeout(() => input.remove(), 1000);
     if (f) scanIniciar(colabId, docId, f, origem);
   });
   input.click();
+  scanLog('seletor de foto aberto (' + origem + ')');
 }
 
 async function uploadDocCollab(colabId, docId, input) {
   const file = input.files[0];
   input.value = ''; // permite escolher o mesmo arquivo de novo
+  scanLog('📎 arquivo escolhido: ' + (file ? (file.type || 'sem tipo') + ' · ' + Math.round(file.size / 1024) + ' KB' : 'nenhum'));
   if (!file) return;
   const ehPdf = /pdf/i.test(file.type) || /\.pdf$/i.test(file.name);
   if (!ehPdf) { // foto da galeria também passa pelo scanner
@@ -3644,12 +3685,16 @@ async function scanCarregarImagem(file, max) {
 
 async function scanIniciar(colabId, docId, file, origem) {
   let canvas = null, motivo = '';
+  scanLog('scanIniciar: começando');
   try {
     file = await converterHeicSeNecessario(file);
+    scanLog('após HEIC: ' + (file.type || 'sem tipo'));
     showLoading('Abrindo a foto...');
     canvas = await scanCarregarImagem(file, 2400);
+    scanLog('foto aberta: ' + canvas.width + 'x' + canvas.height);
   } catch (e) {
     motivo = (e && e.message) || String(e);
+    scanLog('FALHA ao abrir a foto: ' + motivo);
     console.warn('Scanner: não abriu a imagem', e);
   }
   hideLoading();
@@ -3678,8 +3723,10 @@ async function scanIniciar(colabId, docId, file, origem) {
   scanEl('scan-modal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
   scanEtapa(1);
+  scanLog('tela do scanner aberta');
   scanDetectar();
   } catch (e) {
+    scanLog('ERRO ao montar a tela: ' + ((e && e.message) || e));
     scanFechar();
     alert('Erro ao abrir o scanner: ' + ((e && e.message) || e) + '\n\nTire um print desta mensagem e envie ao RH.');
   }
@@ -3690,7 +3737,9 @@ async function scanDetectar() {
   scanStatus(scanCvPronto()
     ? '🔍 Procurando as bordas do documento...'
     : '⏳ Preparando o recorte automático (só demora na primeira vez)...');
+  scanLog('baixando detecção...');
   const ok = await scanCarregarOpenCV();
+  scanLog('detecção ' + (ok ? 'pronta' : 'NÃO carregou'));
   if (!SCAN.aberto || sessao !== SCAN.sessao) return;
   const cv = ok ? window.cv : null;
   if (!cv) {
@@ -3708,6 +3757,7 @@ async function scanDetectar() {
   try { cantos = scanDetectarCantos(cv, ctx.getImageData(0, 0, c.width, c.height)); }
   catch (e) { console.warn('Scanner: detecção falhou', e); }
   if (!SCAN.aberto || sessao !== SCAN.sessao) return;
+  scanLog('bordas: ' + (cantos ? 'encontradas' : 'não encontradas'));
   if (cantos) {
     if (!SCAN.tocado) {
       SCAN.cantos = cantos.map(p => ({ x: p.x / k, y: p.y / k }));
