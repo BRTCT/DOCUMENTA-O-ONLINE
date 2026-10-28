@@ -403,6 +403,15 @@
   .scan-status { margin: 10px 14px 0; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.4; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.88); }
   .scan-status-ok { background: rgba(29,158,117,0.22); color: #b5f2db; }
   .scan-status-aviso { background: rgba(239,159,39,0.2); color: #ffd99a; }
+  .rosto-zoom { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.8); font-size: 20px; font-weight: 700; }
+  .rosto-zoom input { flex: 1; accent-color: #3ee0a5; padding: 0; border: none; background: transparent; }
+  .avatar, .detail-avatar, .cv-avatar { overflow: hidden; }
+  .avatar img, .detail-avatar img, .cv-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
+  .detail-avatar { position: relative; }
+  .detail-avatar.editavel { cursor: pointer; }
+  .detail-avatar.editavel::after { content: '📷'; position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.25); font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .detail-avatar.editavel { overflow: visible; }
+  .cv-avatar { width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,0.16); border: 2px solid rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
   .scan-status-erro { background: rgba(226,75,74,0.25); color: #ffc2c1; }
   .scan-pergunta { display: none; position: absolute; inset: 0; background: rgba(15,26,20,0.88); align-items: center; justify-content: center; padding: 20px; z-index: 3; }
   .scan-pergunta-card { background: #fff; color: var(--text-main); border-radius: 16px; padding: 22px 20px 18px; max-width: 340px; width: 100%; text-align: center; }
@@ -731,7 +740,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;font-size:11px;color:var(--text-muted);">
       <a class="help-link" href="#" onclick="resetarConfig()">⚙ Reconfigurar conexão</a>
     </div>
-    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (4) · scanner + aprovação automática</div>
+    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (5) · scanner + aprovação automática + foto de perfil</div>
   </div>
 </div>
 
@@ -773,10 +782,13 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
 <!-- ===== COLLAB VIEW (acesso pelo link) ===== -->
 <div id="collab-screen" style="display:none;">
   <div class="collab-header">
-    <div style="max-width:680px;margin:0 auto;">
-      <div style="font-size:12px;opacity:0.65;margin-bottom:4px;">PARENTE ANDRADE — CHECKLIST DE DOCUMENTAÇÃO</div>
-      <h2 id="cv-nome">Carregando...</h2>
-      <p id="cv-meta"></p>
+    <div style="max-width:680px;margin:0 auto;display:flex;align-items:center;gap:14px;">
+      <div class="cv-avatar" id="cv-avatar"></div>
+      <div style="min-width:0;">
+        <div style="font-size:12px;opacity:0.65;margin-bottom:4px;">PARENTE ANDRADE — CHECKLIST DE DOCUMENTAÇÃO</div>
+        <h2 id="cv-nome">Carregando...</h2>
+        <p id="cv-meta"></p>
+      </div>
     </div>
   </div>
   <div class="collab-content">
@@ -795,7 +807,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;padding:12px;background:var(--gray-bg);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.7;">
       Ao enviar este formulário, você concorda com o tratamento de seus dados pessoais em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>, exclusivamente para fins relacionados a este atendimento.
     </div>
-    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (4) · scanner + aprovação automática</div>
+    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (5) · scanner + aprovação automática + foto de perfil</div>
   </div>
 </div>
 
@@ -1836,7 +1848,7 @@ function renderColabItem(c) {
   const linkBtnHtml = isMQP ? '' : `<button class="btn btn-icon btn-outline" title="Copiar link do colaborador" onclick="mostrarLink('${c.id}')">🔗</button>`;
   return `<div class="colab-item" style="flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:14px;width:100%;">
-      <div class="avatar">${getInitials(c.nome)}</div>
+      <div class="avatar">${avatarConteudo(c)}</div>
       <div class="colab-info">
         <div class="colab-name" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           ${c.nome}
@@ -2791,7 +2803,12 @@ function renderDetalhe() {
   const docs = docsMap[c.id] || [];
   const pct = calcPct(c.id);
   const isMQP = (c.tipo_doc || 'RP') === 'MQP';
-  document.getElementById('dv-avatar').textContent = getInitials(c.nome);
+  const dvAv = document.getElementById('dv-avatar');
+  dvAv.innerHTML = avatarConteudo(c);
+  const podeFoto = !usuarioSomenteVisualizacao && (c.tipo_doc || 'RP') !== 'MQP';
+  dvAv.classList.toggle('editavel', podeFoto);
+  dvAv.title = podeFoto ? 'Clique para enquadrar a foto 3×4 no círculo' : '';
+  dvAv.onclick = podeFoto ? rhAjustarFoto : null;
   document.getElementById('dv-nome').textContent = c.nome;
   let metaTxt = `${c.funcao} · ${c.centro_custo} · ${c.cpf}` + (c.numero_rpmqp ? ` · ${c.tipo_doc||'RP'} ${c.numero_rpmqp}` : '');
   if (isMQP && c.mqp_subtipo) {
@@ -3013,6 +3030,7 @@ async function carregarVisaoColaborador(colabId) {
   document.getElementById('collab-senha-screen').style.display = 'none';
   document.getElementById('collab-screen').style.display = '';
   document.getElementById('cv-nome').textContent = colab.nome;
+  document.getElementById('cv-avatar').innerHTML = avatarConteudo(colab);
   document.getElementById('cv-meta').textContent = colab.funcao + ' · ' + colab.centro_custo;
   document.title = 'Documentação – ' + colab.nome;
   docsMap[colabId] = docs;
@@ -3206,7 +3224,7 @@ window.addEventListener('unhandledrejection', e => scanLog('ERRO (promise): ' + 
 window.addEventListener('pagehide', () => scanLog('página escondida/fechando'));
 document.addEventListener('visibilitychange', () => scanLog('visibilidade: ' + document.visibilityState));
 window.addEventListener('DOMContentLoaded', () => {
-  scanLog('PÁGINA CARREGADA · versão 28/10 (4) · ' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 110));
+  scanLog('PÁGINA CARREGADA · versão 28/10 (5) · ' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 110));
 });
 
 // =============================================
@@ -3453,6 +3471,13 @@ function scanClassificar(q) {
   if (q.nitidez < SCAN_NITIDEZ_APROVA)
     return { nivel: 'medio', msg: 'A foto ficou um pouco tremida. Você pode enviar (o RH vai conferir) ou tirar outra para aprovação automática.' };
   return { nivel: 'bom', msg: 'Foto nítida e legível. Ao enviar, o documento será aprovado automaticamente.' };
+}
+
+// Foto 3x4: rosto não tem bordas de letra, então só barra se estiver muito ruim; o RH confere a foto
+function scanClassificarFoto(q) {
+  if (q.brilho < 50) return { nivel: 'ruim', msg: 'A foto ficou escura. Procure um lugar mais iluminado e tire outra.' };
+  if (q.nitidez < 0.35) return { nivel: 'ruim', msg: 'A foto ficou embaçada. Segure o celular firme, espere focar e tire outra.' };
+  return { nivel: 'info', icone: '📸 ', tipo: 'ok', msg: 'Depois de enviar, você vai enquadrar o rosto no círculo para a foto do seu cadastro. O RH confere a foto.' };
 }
 
 // Detecta as bordas do documento com OpenCV. img deve vir reduzida (~600px).
@@ -3799,7 +3824,7 @@ async function scanIniciar(colabId, docId, file, origem) {
   const W = canvas.width, H = canvas.height, m = 0.08;
   Object.assign(SCAN, {
     aberto: true, sessao: SCAN.sessao + 1, colabId, docId, origem, canvas, W, H,
-    imgData: null, base: null, final: null, qualidade: null, avaliacao: null, filtro: 'realce', tocado: false, arrasto: -1,
+    imgData: null, base: null, final: null, qualidade: null, avaliacao: null, filtro: docId === FOTO_DOC_ID ? 'cor' : 'realce', tocado: false, arrasto: -1,
     cantos: [{ x: W * m, y: H * m }, { x: W * (1 - m), y: H * m }, { x: W * (1 - m), y: H * (1 - m) }, { x: W * m, y: H * (1 - m) }]
   });
   const doc = DOCS.find(d => d.id === docId);
@@ -3866,8 +3891,8 @@ function scanEtapa(n) {
   scanEl('scan-titulo').textContent = n === 1 ? 'Ajuste os cantos do documento' : 'Confira antes de enviar';
   if (n === 2) {
     const a = SCAN.avaliacao;
-    if (a) scanStatus((a.nivel === 'bom' ? '✅ ' : a.nivel === 'medio' ? '⚠️ ' : '❌ ') + a.msg,
-                      a.nivel === 'bom' ? 'ok' : a.nivel === 'medio' ? 'aviso' : 'erro');
+    if (a) scanStatus((a.icone || (a.nivel === 'bom' ? '✅ ' : a.nivel === 'medio' ? '⚠️ ' : '❌ ')) + a.msg,
+                      a.tipo || (a.nivel === 'bom' ? 'ok' : a.nivel === 'medio' ? 'aviso' : 'erro'));
     else scanStatus('Escolha o filtro que deixa o documento mais legível.');
   }
   else if (SCAN.base) scanStatus('Arraste os cantos verdes até as bordas do documento.');
@@ -4017,7 +4042,7 @@ async function scanRecortar() {
     if (!SCAN.imgData) SCAN.imgData = SCAN.canvas.getContext('2d').getImageData(0, 0, SCAN.W, SCAN.H);
     SCAN.base = scanRetificar(SCAN.imgData, cantos, 2200);
     SCAN.qualidade = scanQualidade(SCAN.base);
-    SCAN.avaliacao = scanClassificar(SCAN.qualidade);
+    SCAN.avaliacao = SCAN.docId === FOTO_DOC_ID ? scanClassificarFoto(SCAN.qualidade) : scanClassificar(SCAN.qualidade);
     // documento que o RH reprovou não é aprovado automaticamente (regra também no banco)
     const docAtual = (docsMap[SCAN.colabId] || []).find(x => x.doc_id === SCAN.docId);
     if (SCAN.avaliacao.nivel === 'bom' && docAtual && (docAtual.revisao_rh || docAtual.status === 'fail'))
@@ -4091,8 +4116,14 @@ async function scanEnviar(forcar) {
   };
   scanFechar();
   const status = await uploadArquivo(colabId, docId, file, meta);
-  await carregarVisaoColaborador(colabId);
   scanLog('enviado · status final: ' + status);
+  if (status && docId === FOTO_DOC_ID) {
+    const salvou = await fotoPerfilColab(colabId, c);
+    await carregarVisaoColaborador(colabId);
+    mostrarToastFluxo(salvou ? '✅ Foto 3×4 enviada e salva no seu cadastro!' : '📨 Foto 3×4 enviada! O RH vai conferir.', 'ok');
+    return;
+  }
+  await carregarVisaoColaborador(colabId);
   if (status === 'ok') mostrarToastFluxo('✅ Documento legível — aprovado automaticamente! Se tiver verso, toque em 📷 de novo.', 'ok');
   else if (status) mostrarToastFluxo('📨 Enviado! O RH vai conferir. Se tiver verso, toque em 📷 de novo.', 'ok');
 }
@@ -4106,6 +4137,247 @@ function scanFechar() {
   const m = scanEl('scan-modal');
   if (m) m.style.display = 'none';
   document.body.style.overflow = '';
+}
+
+// =============================================
+// FOTO DE PERFIL: enquadrar o rosto da foto 3x4 no círculo
+// =============================================
+const FOTO_DOC_ID = 'd03'; // "Fotos 3×4 (2 unidades)"
+const ROSTO = { aberto: false, ponteiros: new Map() };
+
+function rostoMontarTela() {
+  if (scanEl('rosto-modal')) return;
+  const div = document.createElement('div');
+  div.id = 'rosto-modal';
+  div.className = 'scan-modal';
+  div.style.display = 'none';
+  div.innerHTML = `
+    <div class="scan-topo">
+      <button class="scan-fechar" onclick="rostoConcluir(null)" aria-label="Fechar">✕</button>
+      <div class="scan-topo-txt">
+        <div class="scan-titulo">Enquadre o rosto no círculo</div>
+        <div class="scan-doc" id="rosto-sub"></div>
+      </div>
+    </div>
+    <div class="scan-status scan-status-ok">Arraste a foto e aproxime com dois dedos (ou com a barra abaixo) até o rosto preencher o círculo.</div>
+    <div class="scan-palco" id="rosto-palco"><canvas id="rosto-canvas" style="display:block;touch-action:none;cursor:grab;"></canvas></div>
+    <div class="scan-rodape">
+      <div class="rosto-zoom"><span>−</span><input type="range" id="rosto-zoom" min="0" max="1000" value="0" aria-label="Aproximar"><span>+</span></div>
+      <div class="scan-linha">
+        <button class="scan-btn-sec" onclick="rostoConcluir(null)">Pular</button>
+        <button class="scan-btn-pri" onclick="rostoSalvar()">Usar esta foto ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+  const cv = scanEl('rosto-canvas');
+  cv.addEventListener('pointerdown', rostoToqueInicio);
+  cv.addEventListener('pointermove', rostoToqueMover);
+  cv.addEventListener('pointerup', rostoToqueFim);
+  cv.addEventListener('pointercancel', rostoToqueFim);
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = cv.getBoundingClientRect();
+    rostoZoomEm(ROSTO.escala * Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  scanEl('rosto-zoom').addEventListener('input', e => {
+    const t = e.target.value / 1000;
+    rostoZoomEm(ROSTO.min * Math.pow(ROSTO.max / ROSTO.min, t), ROSTO.cx, ROSTO.cy, true);
+  });
+  window.addEventListener('resize', () => { if (ROSTO.aberto) rostoAjustarTamanho(); });
+}
+
+// Abre o enquadramento. Devolve uma Promise com o recorte (Blob JPEG quadrado) ou null se pular.
+function rostoEnquadrar(fonte, subtitulo) {
+  rostoMontarTela();
+  return new Promise(resolve => {
+    Object.assign(ROSTO, { aberto: true, fonte, iw: fonte.width, ih: fonte.height, resolver: resolve, inicial: true });
+    ROSTO.ponteiros.clear();
+    scanEl('rosto-sub').textContent = subtitulo || '';
+    scanEl('rosto-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => { rostoAjustarTamanho(); rostoZoomEm(ROSTO.escala, ROSTO.cx, ROSTO.cy); });
+  });
+}
+
+function rostoAjustarTamanho() {
+  const palco = scanEl('rosto-palco').getBoundingClientRect();
+  const W = Math.max(100, palco.width), H = Math.max(100, palco.height);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const cv = scanEl('rosto-canvas');
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  // ponto da foto que estava no centro do círculo (para manter ao redimensionar)
+  const antes = ROSTO.inicial ? null : { x: (ROSTO.cx - ROSTO.tx) / ROSTO.escala, y: (ROSTO.cy - ROSTO.ty) / ROSTO.escala, rel: ROSTO.escala / ROSTO.min };
+  Object.assign(ROSTO, { W, H, dpr, cx: W / 2, cy: H / 2, R: Math.min(W, H) * 0.38 });
+  ROSTO.min = (2 * ROSTO.R) / Math.min(ROSTO.iw, ROSTO.ih);
+  ROSTO.max = ROSTO.min * 8;
+  if (antes) {
+    ROSTO.escala = ROSTO.min * antes.rel;
+    ROSTO.tx = ROSTO.cx - antes.x * ROSTO.escala; ROSTO.ty = ROSTO.cy - antes.y * ROSTO.escala;
+  } else {
+    // ponto de partida: o rosto de uma 3x4 costuma ficar no centro, um pouco acima do meio
+    ROSTO.escala = Math.max(ROSTO.min, (2 * ROSTO.R) / (ROSTO.iw * 0.6));
+    ROSTO.tx = ROSTO.cx - ROSTO.iw * 0.5 * ROSTO.escala;
+    ROSTO.ty = ROSTO.cy - ROSTO.ih * 0.42 * ROSTO.escala;
+    ROSTO.inicial = false;
+  }
+  rostoLimitar(); rostoDesenhar();
+}
+
+// A foto sempre cobre o círculo inteiro
+function rostoLimitar() {
+  const s = ROSTO.escala = Math.max(ROSTO.min, Math.min(ROSTO.max, ROSTO.escala));
+  ROSTO.tx = Math.min(ROSTO.cx - ROSTO.R, Math.max(ROSTO.cx + ROSTO.R - ROSTO.iw * s, ROSTO.tx));
+  ROSTO.ty = Math.min(ROSTO.cy - ROSTO.R, Math.max(ROSTO.cy + ROSTO.R - ROSTO.ih * s, ROSTO.ty));
+}
+
+function rostoZoomEm(novaEscala, px, py, doSlider) {
+  const s0 = ROSTO.escala;
+  const s1 = Math.max(ROSTO.min, Math.min(ROSTO.max, novaEscala));
+  const ix = (px - ROSTO.tx) / s0, iy = (py - ROSTO.ty) / s0;
+  ROSTO.escala = s1; ROSTO.tx = px - ix * s1; ROSTO.ty = py - iy * s1;
+  rostoLimitar(); rostoDesenhar();
+  if (!doSlider) scanEl('rosto-zoom').value = Math.round(1000 * Math.log(ROSTO.escala / ROSTO.min) / Math.log(ROSTO.max / ROSTO.min));
+}
+
+function rostoDesenhar() {
+  const cv = scanEl('rosto-canvas'), ctx = cv.getContext('2d'), d = ROSTO.dpr;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.fillStyle = '#0f1a14'; ctx.fillRect(0, 0, ROSTO.W, ROSTO.H);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(ROSTO.fonte, ROSTO.tx, ROSTO.ty, ROSTO.iw * ROSTO.escala, ROSTO.ih * ROSTO.escala);
+  ctx.beginPath();
+  ctx.rect(0, 0, ROSTO.W, ROSTO.H);
+  ctx.arc(ROSTO.cx, ROSTO.cy, ROSTO.R, 0, Math.PI * 2, true);
+  ctx.fillStyle = 'rgba(15,26,20,0.72)';
+  ctx.fill('evenodd');
+  ctx.beginPath(); ctx.arc(ROSTO.cx, ROSTO.cy, ROSTO.R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#3ee0a5'; ctx.lineWidth = 3; ctx.stroke();
+  // guia discreta: linha dos olhos
+  ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ROSTO.cx - ROSTO.R * 0.6, ROSTO.cy - ROSTO.R * 0.15); ctx.lineTo(ROSTO.cx + ROSTO.R * 0.6, ROSTO.cy - ROSTO.R * 0.15); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function rostoPos(e) { const r = scanEl('rosto-canvas').getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+
+function rostoToqueInicio(e) {
+  e.preventDefault();
+  try { scanEl('rosto-canvas').setPointerCapture(e.pointerId); } catch (err) {}
+  ROSTO.ponteiros.set(e.pointerId, rostoPos(e));
+}
+
+function rostoToqueMover(e) {
+  if (!ROSTO.ponteiros.has(e.pointerId)) return;
+  e.preventDefault();
+  const pts = [...ROSTO.ponteiros.values()];
+  const novo = rostoPos(e);
+  if (pts.length === 1) {
+    const a = ROSTO.ponteiros.get(e.pointerId);
+    ROSTO.tx += novo.x - a.x; ROSTO.ty += novo.y - a.y;
+    ROSTO.ponteiros.set(e.pointerId, novo);
+    rostoLimitar(); rostoDesenhar();
+  } else if (pts.length >= 2) {
+    const ids = [...ROSTO.ponteiros.keys()];
+    const outro = ROSTO.ponteiros.get(ids.find(i => i !== e.pointerId));
+    const velho = ROSTO.ponteiros.get(e.pointerId);
+    const d0 = Math.hypot(velho.x - outro.x, velho.y - outro.y) || 1;
+    const d1 = Math.hypot(novo.x - outro.x, novo.y - outro.y) || 1;
+    const m0 = { x: (velho.x + outro.x) / 2, y: (velho.y + outro.y) / 2 };
+    const m1 = { x: (novo.x + outro.x) / 2, y: (novo.y + outro.y) / 2 };
+    ROSTO.tx += m1.x - m0.x; ROSTO.ty += m1.y - m0.y;
+    ROSTO.ponteiros.set(e.pointerId, novo);
+    rostoZoomEm(ROSTO.escala * d1 / d0, m1.x, m1.y);
+  }
+}
+
+function rostoToqueFim(e) { ROSTO.ponteiros.delete(e.pointerId); }
+
+function rostoSalvar() {
+  const r = ROSTO.R / ROSTO.escala;
+  const ix = (ROSTO.cx - ROSTO.tx) / ROSTO.escala, iy = (ROSTO.cy - ROSTO.ty) / ROSTO.escala;
+  const T = 360, c = document.createElement('canvas');
+  c.width = T; c.height = T;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(ROSTO.fonte, ix - r, iy - r, 2 * r, 2 * r, 0, 0, T, T);
+  c.toBlob(b => rostoConcluir(b), 'image/jpeg', 0.88);
+}
+
+function rostoConcluir(blob) {
+  if (!ROSTO.aberto) return;
+  ROSTO.aberto = false;
+  scanEl('rosto-modal').style.display = 'none';
+  document.body.style.overflow = '';
+  const res = ROSTO.resolver; ROSTO.resolver = null; ROSTO.fonte = null;
+  if (res) res(blob || null);
+}
+
+// Envia o recorte para o Storage e devolve o endereço público
+async function fotoEnviarArquivo(colabId, blob) {
+  const path = `${colabId}/foto-perfil-${Date.now()}-${nomeAleatorio()}.jpg`;
+  const { error } = await sb.storage.from('documentos').upload(path, blob, { upsert: false, contentType: 'image/jpeg' });
+  if (error) { alert('Erro ao enviar a foto: ' + error.message); return null; }
+  return sb.storage.from('documentos').getPublicUrl(path).data.publicUrl;
+}
+
+// Colaborador: depois de enviar a 3x4, enquadra o rosto
+async function fotoPerfilColab(colabId, fonte) {
+  const blob = await rostoEnquadrar(fonte, 'Essa foto vai aparecer no seu cadastro');
+  if (!blob) return false;
+  showLoading('Salvando sua foto...');
+  const url = await fotoEnviarArquivo(colabId, blob);
+  let ok = false;
+  if (url) {
+    const { data, error } = await sb.rpc('colab_salvar_foto', { p_colab_id: colabId, p_senha: senhaColabAtual, p_foto_url: url });
+    if (error) alert('Erro ao salvar a foto: ' + error.message);
+    else if (!data || !data.ok) alert(mensagemErroSenha(data && data.erro));
+    else ok = true;
+  }
+  hideLoading();
+  return ok;
+}
+
+// RH: clicar na bolinha do dossiê enquadra (ou reenquadra) a 3x4 enviada
+async function rhAjustarFoto() {
+  if (usuarioSomenteVisualizacao || !currentColab) return;
+  const c = currentColab;
+  const st = getDocState(docsMap[c.id] || [], FOTO_DOC_ID);
+  const imgs = getArquivos(st).filter(a => /\.(jpe?g|png|webp|gif|bmp)$/i.test(a.nome || '') || /\.(jpe?g|png|webp|gif|bmp)(\?|$)/i.test(a.url || ''));
+  if (!imgs.length) {
+    alert('O colaborador ainda não enviou a foto 3×4 como imagem.\n\nQuando ele enviar pelo 📷, poderá enquadrar o rosto, e você também pode ajustar clicando aqui.');
+    return;
+  }
+  showLoading('Abrindo a foto 3×4...');
+  let fonte;
+  try {
+    const resp = await fetch(imgs[0].url);
+    if (!resp.ok) throw new Error('arquivo não encontrado (' + resp.status + ')');
+    fonte = await scanCarregarImagem(await resp.blob(), 2400);
+  } catch (e) {
+    hideLoading();
+    alert('Não foi possível abrir a foto 3×4: ' + e.message);
+    return;
+  }
+  hideLoading();
+  const blob = await rostoEnquadrar(fonte, 'Foto 3×4 de ' + c.nome);
+  if (!blob) return;
+  showLoading('Salvando foto...');
+  const url = await fotoEnviarArquivo(c.id, blob);
+  if (url) {
+    const { error } = await sb.from('colaboradores').update({ foto_url: url }).eq('id', c.id);
+    if (error) alert('Erro ao salvar: ' + error.message + (/foto_url/.test(error.message) ? '\n\nRode o SQL da foto de perfil no Supabase.' : ''));
+    else c.foto_url = url;
+  }
+  hideLoading();
+  renderDetalhe();
+}
+
+// Conteúdo da bolinha: foto (se houver) ou iniciais
+function avatarConteudo(c) {
+  const ini = getInitials(c && c.nome);
+  if (c && c.foto_url) return `<img src="${escapeHtml(c.foto_url)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${ini}'))">`;
+  return ini;
 }
 
 // =============================================
