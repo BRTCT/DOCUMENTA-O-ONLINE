@@ -403,6 +403,14 @@
   .scan-status { margin: 10px 14px 0; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.4; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.88); }
   .scan-status-ok { background: rgba(29,158,117,0.22); color: #b5f2db; }
   .scan-status-aviso { background: rgba(239,159,39,0.2); color: #ffd99a; }
+  .scan-status-erro { background: rgba(226,75,74,0.25); color: #ffc2c1; }
+  .scan-pergunta { display: none; position: absolute; inset: 0; background: rgba(15,26,20,0.88); align-items: center; justify-content: center; padding: 20px; z-index: 3; }
+  .scan-pergunta-card { background: #fff; color: var(--text-main); border-radius: 16px; padding: 22px 20px 18px; max-width: 340px; width: 100%; text-align: center; }
+  .scan-pergunta-icone { font-size: 38px; margin-bottom: 6px; }
+  .scan-pergunta-titulo { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .scan-pergunta-txt { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
+  .scan-pergunta-card .scan-btn-pri { width: 100%; }
+  .scan-link-sec { margin-top: 10px; border: none; background: none; color: var(--text-muted); font-size: 13px; text-decoration: underline; cursor: pointer; font-family: inherit; padding: 6px; }
   .scan-palco { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; touch-action: none; overflow: hidden; }
   .scan-quadro { position: relative; }
   .scan-quadro canvas { display: block; width: 100%; height: 100%; border-radius: 2px; }
@@ -723,7 +731,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;font-size:11px;color:var(--text-muted);">
       <a class="help-link" href="#" onclick="resetarConfig()">⚙ Reconfigurar conexão</a>
     </div>
-    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (3) · com scanner 📷</div>
+    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (4) · scanner + aprovação automática</div>
   </div>
 </div>
 
@@ -787,7 +795,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;padding:12px;background:var(--gray-bg);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.7;">
       Ao enviar este formulário, você concorda com o tratamento de seus dados pessoais em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>, exclusivamente para fins relacionados a este atendimento.
     </div>
-    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (3) · com scanner 📷</div>
+    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (4) · scanner + aprovação automática</div>
   </div>
 </div>
 
@@ -2117,7 +2125,7 @@ function mostrarToastFluxo(msg, tipo) {
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'fluxo-toast';
-    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;transition:opacity 0.4s;box-shadow:0 2px 12px rgba(0,0,0,0.15);';
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;left:auto;max-width:calc(100vw - 32px);padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;transition:opacity 0.4s;box-shadow:0 2px 12px rgba(0,0,0,0.15);pointer-events:none;';
     document.body.appendChild(toast);
   }
   toast.textContent = msg;
@@ -2874,6 +2882,7 @@ function renderDocRows(containerId, docList, docs, isRecruiter) {
     const _arqs = getArquivos(st);
     const fileHtml = _arqs.length ? _arqs.map((a,_i)=>`<div class="doc-file" style="display:flex;align-items:center;gap:5px;">
       <span>📄</span><a href="${a.url}" target="_blank" style="color:var(--green-text);font-size:11px;flex:1;">${a.nome}</a>
+      ${a.qualidade != null ? `<span style="font-size:10px;font-weight:600;white-space:nowrap;color:${a.legivel ? 'var(--green-text)' : 'var(--amber-text)'};" title="Nitidez medida pelo scanner: ${a.qualidade}">${a.legivel ? '✓ nítida' : '⚠ pouco nítida'}</span>` : ''}
       ${isRecruiter?`<button onclick="removerArquivoRecrutador('${st.id||''}','${doc.id}',${_i})" style="border:none;background:none;color:#e24b4a;cursor:pointer;font-size:13px;" title="Remover arquivo">✕</button>`:''}
     </div>`).join('') : (isRecruiter&&!st.na?'<div style="font-size:11px;color:var(--text-muted);">Nenhum arquivo enviado</div>':'');
     let controls = '';
@@ -2896,6 +2905,7 @@ function renderDocRows(containerId, docList, docs, isRecruiter) {
         <div class="doc-name">${doc.n}${st.na?' <span style="font-size:11px;color:var(--text-muted);">(não aplicável)</span>':''}</div>
         ${fileHtml}
         ${st.status==='fail'&&st.obs?`<div style="font-size:11px;color:var(--red-text);margin-top:3px;">⚠ ${st.obs}</div>`:''}
+        ${isRecruiter&&st.status==='ok'&&st.auto_aprovado?`<div style="display:inline-block;font-size:10.5px;font-weight:600;color:var(--green-text);background:var(--green-light);border-radius:10px;padding:2px 8px;margin-top:4px;" title="Aprovado pelo scanner porque a foto estava nítida. Confira se é o documento certo e se está dentro da validade.">🤖 Aprovado automaticamente — confira o conteúdo</div>`:''}
       </div>
       <div class="doc-controls">${controls}</div>
     </div>`;
@@ -2908,11 +2918,17 @@ async function setStatus(docId, status) {
   const docs = docsMap[currentColab.id] || [];
   const existing = docs.find(x=>x.doc_id===docId);
   showLoading('Salvando...');
+  // reprovado pelo RH: daqui em diante só o RH aprova; aprovado pelo RH: deixa de ser "automático"
+  const extra = { auto_aprovado: false, revisao_rh: status === 'fail' };
+  let error;
   if(existing) {
-    await sb.from('documentos').update({status, na:false}).eq('id', existing.id);
+    ({ error } = await sb.from('documentos').update({status, na:false, ...extra}).eq('id', existing.id));
+    if (error && /auto_aprovado|revisao_rh/.test(error.message)) ({ error } = await sb.from('documentos').update({status, na:false}).eq('id', existing.id));
   } else {
-    await sb.from('documentos').insert({colaborador_id:currentColab.id, doc_id:docId, status, na:false});
+    ({ error } = await sb.from('documentos').insert({colaborador_id:currentColab.id, doc_id:docId, status, na:false, ...extra}));
+    if (error && /auto_aprovado|revisao_rh/.test(error.message)) ({ error } = await sb.from('documentos').insert({colaborador_id:currentColab.id, doc_id:docId, status, na:false}));
   }
+  if (error) alert('Erro ao salvar: ' + error.message);
   await recarregarDocs();
   hideLoading();
   renderDetalhe();
@@ -3035,6 +3051,7 @@ function renderDocRowsCollab(containerId, docList, docs, colabId) {
         <div class="doc-name">${doc.n}</div>
         ${filesHtml}${countLabel}
         ${st.status==='fail'?'<div style="font-size:11px;color:var(--red-text);margin-top:3px;">⚠ Reprovado — envie novamente.</div>':''}
+        ${st.status==='ok'?`<div style="font-size:11px;color:var(--green-text);margin-top:3px;">✅ ${st.auto_aprovado ? 'Recebido e legível — aprovado' : 'Aprovado pelo RH'}</div>`:''}
       </div>
       <div class="doc-controls">
         <div class="dot ${dotClass}"></div>
@@ -3128,7 +3145,8 @@ async function salvarDocColab(colabId, docId, arquivos) {
     p_doc_id: docId,
     p_arquivo_url: arquivos.length ? JSON.stringify(arquivos) : null,
     p_arquivo_nome: arquivos.length ? arquivos[0].nome : null,
-    p_status: arquivos.length ? 'analysis' : 'none'
+    // todas as páginas do documento legíveis pelo scanner → aprovado automaticamente
+    p_status: !arquivos.length ? 'none' : (arquivos.every(a => a.legivel === true) ? 'ok' : 'analysis')
   });
   if (error) { alert('Erro ao salvar: ' + error.message); return false; }
   if (!data || !data.ok) {
@@ -3137,9 +3155,9 @@ async function salvarDocColab(colabId, docId, arquivos) {
       try { sessionStorage.removeItem('colab_senha_' + colabId); } catch (e) {}
     }
     alert(mensagemErroSenha(data && data.erro));
-    return false;
+    return null;
   }
-  return true;
+  return data.status || 'analysis';
 }
 
 async function removerArquivoCollab(colabId, docId, idx) {
@@ -3188,7 +3206,7 @@ window.addEventListener('unhandledrejection', e => scanLog('ERRO (promise): ' + 
 window.addEventListener('pagehide', () => scanLog('página escondida/fechando'));
 document.addEventListener('visibilitychange', () => scanLog('visibilidade: ' + document.visibilityState));
 window.addEventListener('DOMContentLoaded', () => {
-  scanLog('PÁGINA CARREGADA · versão 28/10 (3) · ' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 110));
+  scanLog('PÁGINA CARREGADA · versão 28/10 (4) · ' + navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 110));
 });
 
 // =============================================
@@ -3379,6 +3397,64 @@ function scanFiltro(img, modo) {
   return out;
 }
 
+// Avalia se a foto do documento está legível. img = { data RGBA, width, height } (já recortada)
+// nitidez ≈ 1 / largura das bordas das letras (em pixels, com o documento a ~1200px)
+function scanQualidade(img) {
+  const W0 = img.width, H0 = img.height, d = img.data;
+  const k = Math.min(1, 1200 / Math.max(W0, H0));
+  const W = Math.max(1, Math.round(W0 * k)), H = Math.max(1, Math.round(H0 * k));
+  // reduz por média de área e converte para cinza
+  const g = new Float32Array(W * H), passo = 1 / k;
+  for (let y = 0; y < H; y++) {
+    const ya = Math.floor(y * passo), yb = Math.max(ya + 1, Math.floor((y + 1) * passo));
+    for (let x = 0; x < W; x++) {
+      const xa = Math.floor(x * passo), xb = Math.max(xa + 1, Math.floor((x + 1) * passo));
+      let s = 0, n = 0;
+      for (let yy = ya; yy < yb && yy < H0; yy++) for (let xx = xa; xx < xb && xx < W0; xx++) {
+        const j = (yy * W0 + xx) * 4; s += d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114; n++;
+      }
+      g[y * W + x] = n ? s / n : 0;
+    }
+  }
+  // brilho e contraste (percentis 5% e 95%)
+  const hist = new Uint32Array(256); let soma = 0;
+  for (let i = 0; i < g.length; i++) { const v = g[i] | 0; hist[v]++; soma += g[i]; }
+  const pct = p => { let acc = 0, alvo = g.length * p; for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= alvo) return v; } return 255; };
+  const p5 = pct(0.05), p95 = pct(0.95);
+  const contraste = p95 - p5, brilho = soma / g.length;
+  // bordas (Sobel): os 0,5% mais fortes
+  const mh = new Uint32Array(1024); let tot = 0;
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x;
+    const gx = (g[i - W + 1] + 2 * g[i + 1] + g[i + W + 1]) - (g[i - W - 1] + 2 * g[i - 1] + g[i + W - 1]);
+    const gy = (g[i + W - 1] + 2 * g[i + W] + g[i + W + 1]) - (g[i - W - 1] + 2 * g[i - W] + g[i - W + 1]);
+    const m = Math.min(1023, Math.round(Math.sqrt(gx * gx + gy * gy) / 4));
+    mh[m]++; tot++;
+  }
+  let acc = 0, forte = 0;
+  for (let v = 1023; v >= 0; v--) { acc += mh[v]; if (acc >= tot * 0.005) { forte = v; break; } }
+  const nitidez = forte / Math.max(40, contraste);
+  return { nitidez, contraste, brilho, largura: W0, altura: H0 };
+}
+
+// Limites de legibilidade (ajuste aqui se precisar ficar mais ou menos exigente)
+const SCAN_NITIDEZ_APROVA = 0.85; // a partir daqui: legível → aprovado automaticamente
+const SCAN_NITIDEZ_MINIMA = 0.55; // abaixo daqui: embaçada → pede outra foto
+
+function scanClassificar(q) {
+  if (Math.max(q.largura, q.altura) < 800)
+    return { nivel: 'ruim', msg: 'O documento ficou pequeno na foto. Aproxime mais a câmera e tire outra.' };
+  if (q.brilho < 60)
+    return { nivel: 'ruim', msg: 'A foto ficou escura. Procure um lugar mais iluminado e tire outra.' };
+  if (q.contraste < 45)
+    return { nivel: 'ruim', msg: 'Não dá para ver bem o conteúdo (reflexo ou sombra forte). Tire outra foto.' };
+  if (q.nitidez < SCAN_NITIDEZ_MINIMA)
+    return { nivel: 'ruim', msg: 'A foto ficou embaçada ou tremida. Segure o celular firme, espere focar e tire outra.' };
+  if (q.nitidez < SCAN_NITIDEZ_APROVA)
+    return { nivel: 'medio', msg: 'A foto ficou um pouco tremida. Você pode enviar (o RH vai conferir) ou tirar outra para aprovação automática.' };
+  return { nivel: 'bom', msg: 'Foto nítida e legível. Ao enviar, o documento será aprovado automaticamente.' };
+}
+
 // Detecta as bordas do documento com OpenCV. img deve vir reduzida (~600px).
 // Retorna 4 cantos [TL,TR,BR,BL] nas coordenadas de img, ou null.
 function scanDetectarCantos(cv, img) {
@@ -3551,6 +3627,15 @@ function scanMontarTela() {
       </div>
       <canvas id="scan-resultado" class="scan-resultado"></canvas>
       <canvas id="scan-lupa" class="scan-lupa" width="240" height="240"></canvas>
+      <div class="scan-pergunta" id="scan-pergunta">
+        <div class="scan-pergunta-card">
+          <div class="scan-pergunta-icone">📷</div>
+          <div class="scan-pergunta-titulo">Vamos tirar outra foto?</div>
+          <div class="scan-pergunta-txt" id="scan-pergunta-txt"></div>
+          <button class="scan-btn-pri" onclick="scanPerguntaFechar();scanOutraFoto()">📷 Tirar outra foto</button>
+          <button class="scan-link-sec" onclick="scanPerguntaFechar();scanEnviar(true)">Enviar assim mesmo (o RH vai conferir)</button>
+        </div>
+      </div>
       <div class="scan-ocupado" id="scan-ocupado"><div class="scan-giro"></div><span id="scan-ocupado-txt">Processando...</span></div>
     </div>
     <div class="scan-rodape" id="scan-rodape-1">
@@ -3714,13 +3799,15 @@ async function scanIniciar(colabId, docId, file, origem) {
   const W = canvas.width, H = canvas.height, m = 0.08;
   Object.assign(SCAN, {
     aberto: true, sessao: SCAN.sessao + 1, colabId, docId, origem, canvas, W, H,
-    imgData: null, base: null, final: null, filtro: 'realce', tocado: false, arrasto: -1,
+    imgData: null, base: null, final: null, qualidade: null, avaliacao: null, filtro: 'realce', tocado: false, arrasto: -1,
     cantos: [{ x: W * m, y: H * m }, { x: W * (1 - m), y: H * m }, { x: W * (1 - m), y: H * (1 - m) }, { x: W * m, y: H * (1 - m) }]
   });
   const doc = DOCS.find(d => d.id === docId);
   scanEl('scan-doc').textContent = doc ? doc.n : '';
   scanEl('scan-txt-outra').textContent = origem === 'galeria' ? 'Escolher outra' : 'Tirar outra';
   scanEl('scan-modal').style.display = 'flex';
+  const aviso = document.getElementById('fluxo-toast');
+  if (aviso) aviso.style.opacity = '0';
   document.body.style.overflow = 'hidden';
   scanEtapa(1);
   scanLog('tela do scanner aberta');
@@ -3777,7 +3864,12 @@ function scanEtapa(n) {
   scanEl('scan-quadro').style.display = n === 1 ? '' : 'none';
   scanEl('scan-resultado').style.display = n === 2 ? '' : 'none';
   scanEl('scan-titulo').textContent = n === 1 ? 'Ajuste os cantos do documento' : 'Confira antes de enviar';
-  if (n === 2) scanStatus('Escolha o filtro que deixa o documento mais legível.');
+  if (n === 2) {
+    const a = SCAN.avaliacao;
+    if (a) scanStatus((a.nivel === 'bom' ? '✅ ' : a.nivel === 'medio' ? '⚠️ ' : '❌ ') + a.msg,
+                      a.nivel === 'bom' ? 'ok' : a.nivel === 'medio' ? 'aviso' : 'erro');
+    else scanStatus('Escolha o filtro que deixa o documento mais legível.');
+  }
   else if (SCAN.base) scanStatus('Arraste os cantos verdes até as bordas do documento.');
   scanAjustarTamanho();
 }
@@ -3924,6 +4016,14 @@ async function scanRecortar() {
   try {
     if (!SCAN.imgData) SCAN.imgData = SCAN.canvas.getContext('2d').getImageData(0, 0, SCAN.W, SCAN.H);
     SCAN.base = scanRetificar(SCAN.imgData, cantos, 2200);
+    SCAN.qualidade = scanQualidade(SCAN.base);
+    SCAN.avaliacao = scanClassificar(SCAN.qualidade);
+    // documento que o RH reprovou não é aprovado automaticamente (regra também no banco)
+    const docAtual = (docsMap[SCAN.colabId] || []).find(x => x.doc_id === SCAN.docId);
+    if (SCAN.avaliacao.nivel === 'bom' && docAtual && (docAtual.revisao_rh || docAtual.status === 'fail'))
+      SCAN.avaliacao = { nivel: 'bom', msg: 'Foto nítida e legível. Como este documento foi reprovado antes, o RH vai conferir o novo envio.' };
+    scanLog('qualidade: nitidez ' + SCAN.qualidade.nitidez.toFixed(2) + ' · brilho ' + Math.round(SCAN.qualidade.brilho) +
+            ' · contraste ' + SCAN.qualidade.contraste + ' · ' + SCAN.base.width + 'x' + SCAN.base.height + ' → ' + SCAN.avaliacao.nivel);
   } catch (e) {
     scanOcupado(null);
     alert('Não foi possível recortar a imagem: ' + e.message);
@@ -3957,9 +4057,22 @@ async function scanGirar() {
   await scanAplicarFiltro(SCAN.filtro);
 }
 
-async function scanEnviar() {
+function scanPerguntaFechar() {
+  const el = scanEl('scan-pergunta');
+  if (el) el.style.display = 'none';
+}
+
+async function scanEnviar(forcar) {
   const r = SCAN.final;
   if (!r) return;
+  const av = SCAN.avaliacao || { nivel: 'medio' };
+  // foto ruim: pede outra antes de enviar
+  if (av.nivel === 'ruim' && !forcar) {
+    scanEl('scan-pergunta-txt').textContent = av.msg;
+    scanEl('scan-pergunta').style.display = 'flex';
+    scanLog('foto ruim: pedido de nova foto');
+    return;
+  }
   scanOcupado('Preparando o envio...');
   await scanEsperar(20);
   const c = document.createElement('canvas');
@@ -3972,17 +4085,24 @@ async function scanEnviar() {
   const existente = (docsMap[colabId] || []).find(x => x.doc_id === docId);
   const pag = getArquivos(existente).length + 1;
   const file = new File([blob], `Documento digitalizado - pag ${pag}.jpg`, { type: 'image/jpeg' });
+  const meta = {
+    qualidade: SCAN.qualidade ? Math.round(SCAN.qualidade.nitidez * 100) / 100 : null,
+    legivel: av.nivel === 'bom'
+  };
   scanFechar();
-  await uploadArquivo(colabId, docId, file);
+  const status = await uploadArquivo(colabId, docId, file, meta);
   await carregarVisaoColaborador(colabId);
-  mostrarToastFluxo('✅ Enviado! Se o documento tiver verso, toque em 📷 de novo.', 'ok');
+  scanLog('enviado · status final: ' + status);
+  if (status === 'ok') mostrarToastFluxo('✅ Documento legível — aprovado automaticamente! Se tiver verso, toque em 📷 de novo.', 'ok');
+  else if (status) mostrarToastFluxo('📨 Enviado! O RH vai conferir. Se tiver verso, toque em 📷 de novo.', 'ok');
 }
 
 function scanFechar() {
+  scanPerguntaFechar();
   SCAN.aberto = false;
   SCAN.sessao++;
   SCAN.arrasto = -1;
-  SCAN.canvas = null; SCAN.imgData = null; SCAN.base = null; SCAN.final = null;
+  SCAN.canvas = null; SCAN.imgData = null; SCAN.base = null; SCAN.final = null; SCAN.qualidade = null; SCAN.avaliacao = null;
   const m = scanEl('scan-modal');
   if (m) m.style.display = 'none';
   document.body.style.overflow = '';
@@ -4023,7 +4143,7 @@ function nomeAleatorio() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
 }
 
-async function uploadArquivo(colabId, docId, file) {
+async function uploadArquivo(colabId, docId, file, meta) {
   showLoading('Enviando arquivo...');
   file = await converterHeicSeNecessario(file);
   showLoading('Enviando arquivo...');
@@ -4031,21 +4151,23 @@ async function uploadArquivo(colabId, docId, file) {
   const MAX = 6;
   const existing = (docsMap[colabId]||[]).find(x=>x.doc_id===docId);
   const arquivosAtuais = existing ? getArquivos(existing) : [];
-  if (arquivosAtuais.length >= MAX) { hideLoading(); alert(`Máximo de ${MAX} arquivos por documento atingido.`); return; }
+  if (arquivosAtuais.length >= MAX) { hideLoading(); alert(`Máximo de ${MAX} arquivos por documento atingido.`); return null; }
 
   const ext = file.name.split('.').pop();
   // nome com parte aleatória: impede adivinhar o endereço do arquivo
   const path = `${colabId}/${docId}-${Date.now()}-${nomeAleatorio()}.${ext}`;
   const { error: upErr } = await sb.storage.from('documentos').upload(path, file, {upsert:false});
-  if(upErr) { hideLoading(); alert('Erro no upload: '+upErr.message); return; }
+  if(upErr) { hideLoading(); alert('Erro no upload: '+upErr.message); return null; }
   const { data: { publicUrl } } = sb.storage.from('documentos').getPublicUrl(path);
-  arquivosAtuais.push({url:publicUrl, nome:file.name});
+  const novo = { url: publicUrl, nome: file.name };
+  if (meta && meta.qualidade != null) { novo.qualidade = meta.qualidade; novo.legivel = !!meta.legivel; }
+  arquivosAtuais.push(novo);
 
   // Colaborador (link público): grava pela função protegida por senha
   if (isCollabView) {
-    await salvarDocColab(colabId, docId, arquivosAtuais);
+    const st = await salvarDocColab(colabId, docId, arquivosAtuais);
     hideLoading();
-    return;
+    return st;
   }
 
   // Recrutador (logado): grava direto
@@ -4057,6 +4179,7 @@ async function uploadArquivo(colabId, docId, file) {
   const {data} = await sb.from('documentos').select('*').eq('colaborador_id',colabId);
   docsMap[colabId]=data||[];
   hideLoading();
+  return 'analysis';
 }
 
 async function uploadDoc(docId, input) {
