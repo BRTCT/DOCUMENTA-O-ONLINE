@@ -723,6 +723,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;font-size:11px;color:var(--text-muted);">
       <a class="help-link" href="#" onclick="resetarConfig()">⚙ Reconfigurar conexão</a>
     </div>
+    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 · com scanner 📷</div>
   </div>
 </div>
 
@@ -786,6 +787,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;padding:12px;background:var(--gray-bg);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.7;">
       Ao enviar este formulário, você concorda com o tratamento de seus dados pessoais em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>, exclusivamente para fins relacionados a este atendimento.
     </div>
+    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 · com scanner 📷</div>
   </div>
 </div>
 
@@ -5421,6 +5423,8 @@ function gerarPDFRelatorio(linhas) {
 
 // START
 // =============================================
+// Se o link mudar com a página já aberta (ex.: colar o link do colaborador na mesma aba), recarrega
+window.addEventListener('hashchange', () => location.reload());
 init();
 </script>
 </body>
