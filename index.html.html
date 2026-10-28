@@ -392,6 +392,43 @@
     .progress-wrap { display: none; }
     .collab-content { padding: 14px; }
   }
+
+  /* ===== SCANNER DE DOCUMENTOS (colaborador) ===== */
+  .scan-modal { position: fixed; inset: 0; height: 100%; height: 100dvh; background: #0f1a14; color: #fff; z-index: 1000; display: flex; flex-direction: column; font-family: inherit; user-select: none; -webkit-user-select: none; }
+  .scan-topo { display: flex; align-items: center; gap: 12px; padding: 12px 14px; padding-top: max(12px, env(safe-area-inset-top)); background: var(--green-dark); }
+  .scan-fechar { width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,0.14); color: #fff; font-size: 17px; cursor: pointer; flex-shrink: 0; }
+  .scan-topo-txt { min-width: 0; }
+  .scan-titulo { font-size: 15px; font-weight: 700; }
+  .scan-doc { font-size: 11px; opacity: 0.7; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scan-status { margin: 10px 14px 0; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.4; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.88); }
+  .scan-status-ok { background: rgba(29,158,117,0.22); color: #b5f2db; }
+  .scan-status-aviso { background: rgba(239,159,39,0.2); color: #ffd99a; }
+  .scan-palco { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; touch-action: none; overflow: hidden; }
+  .scan-quadro { position: relative; }
+  .scan-quadro canvas { display: block; width: 100%; height: 100%; border-radius: 2px; }
+  .scan-quadro svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; overflow: visible; cursor: pointer; }
+  .scan-resultado { display: block; background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+  .scan-lupa { display: none; position: absolute; top: 12px; width: 120px; height: 120px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.5); pointer-events: none; }
+  .scan-ocupado { display: none; position: absolute; inset: 0; background: rgba(15,26,20,0.72); flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: 13px; }
+  .scan-giro { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.25); border-top-color: #3ee0a5; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  .scan-rodape { padding: 12px 14px; padding-bottom: max(14px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; background: #15241c; }
+  .scan-linha { display: flex; gap: 10px; }
+  .scan-linha > * { flex: 1; }
+  .scan-btn-pri { min-height: 50px; border: none; border-radius: 12px; background: #1d9e75; color: #fff; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .scan-btn-pri:active { background: #17805f; }
+  .scan-btn-sec { min-height: 46px; border: 1px solid rgba(255,255,255,0.22); border-radius: 12px; background: transparent; color: #fff; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .scan-btn-sec:active { background: rgba(255,255,255,0.08); }
+  .scan-filtros { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .scan-chip { flex-shrink: 0; min-height: 38px; padding: 0 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.25); background: transparent; color: #fff; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .scan-chip.ativo { background: #fff; color: var(--green-dark); border-color: #fff; }
+  .scan-filtros { justify-content: center; }
+  .scan-linha > .scan-btn-girar { flex: 0 0 50px; font-size: 20px; }
+  @media (min-width: 700px) {
+    .scan-rodape { flex-direction: row; align-items: center; justify-content: center; }
+    .scan-rodape .scan-linha { flex: 0 1 420px; }
+    .scan-rodape > .scan-btn-pri { flex: 0 1 260px; }
+    .scan-filtros { flex: 0 1 auto; }
+  }
 </style>
 </head>
 <body>
@@ -735,7 +772,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
   </div>
   <div class="collab-content">
     <div class="alert alert-info" style="margin-bottom:12px;">
-      Envie os documentos listados abaixo. Utilize o botão 📎 para selecionar até 6 arquivos (PDF ou foto) por documento, ou o botão 📷 para tirar uma foto com a câmera. Após o envio, o RH irá analisar cada documento.
+      Envie os documentos listados abaixo. Use o botão <strong>📷</strong> para fotografar: o sistema recorta e endireita o documento automaticamente, e você pode ajustar os cantos antes de enviar. O botão <strong>📎</strong> serve para escolher um PDF ou uma foto já salva (até 6 arquivos por documento). Após o envio, o RH irá analisar cada documento.
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:white;border:1px solid #e0ddd5;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;">
       <span style="font-weight:600;color:#6b6b68;margin-right:4px;">Legenda:</span>
@@ -3000,7 +3037,7 @@ function renderDocRowsCollab(containerId, docList, docs, colabId) {
       <div class="doc-controls">
         <div class="dot ${dotClass}"></div>
         ${podeAnexar?`<label class="upload-btn" title="Selecionar PDF ou foto">📎<input type="file" accept="image/*,.heic,.heif,application/pdf" onchange="uploadDocCollab('${colabId}','${doc.id}',this)"></label>
-        <button class="upload-btn" title="Câmera" onclick="abrirCameraCollab('${colabId}','${doc.id}')">📷</button>`
+        <button class="upload-btn" title="Fotografar e escanear" onclick="abrirCameraCollab('${colabId}','${doc.id}')">📷</button>`
         :`<span style="font-size:10px;color:var(--text-muted);text-align:center;">Máx<br>${MAX}</span>`}
       </div>
     </div>`;
@@ -3115,18 +3152,749 @@ async function removerArquivoCollab(colabId, docId, idx) {
   await carregarVisaoColaborador(colabId);
 }
 
+// =============================================
+// SCANNER DE DOCUMENTOS (modo escanear do colaborador)
+// Detecta as bordas, endireita a perspectiva e melhora a imagem
+// =============================================
+
+// ---------- Núcleo do scanner (imagens = { data RGBA, width, height }) ----------
+// Imagens são objetos { data: Uint8ClampedArray RGBA, width, height }
+
+function scanNovaImagem(w, h) {
+  return { data: new Uint8ClampedArray(w * h * 4), width: w, height: h };
+}
+
+// Ordena 4 pontos em: superior-esq, superior-dir, inferior-dir, inferior-esq
+function scanOrdenarCantos(pts) {
+  const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
+  const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+  const ord = pts.slice().sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+  // atan2 crescente começa no lado esquerdo (≈ -π) e gira no sentido horário (eixo y para baixo)
+  let iTL = 0, melhor = Infinity;
+  ord.forEach((p, i) => { const s = p.x + p.y; if (s < melhor) { melhor = s; iTL = i; } });
+  const r = [];
+  for (let k = 0; k < 4; k++) r.push({ x: ord[(iTL + k) % 4].x, y: ord[(iTL + k) % 4].y });
+  return r; // TL, TR, BR, BL
+}
+
+// Homografia que leva pontos do retângulo de saída (dst) para o quadrilátero da foto (src)
+function scanHomografia(dst, src) {
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const u = dst[i].x, v = dst[i].y, x = src[i].x, y = src[i].y;
+    A.push([u, v, 1, 0, 0, 0, -u * x, -v * x]); b.push(x);
+    A.push([0, 0, 0, u, v, 1, -u * y, -v * y]); b.push(y);
+  }
+  const n = 8;
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    [A[c], A[p]] = [A[p], A[c]]; [b[c], b[p]] = [b[p], b[c]];
+    const d = A[c][c];
+    if (Math.abs(d) < 1e-12) return null;
+    for (let r = 0; r < n; r++) {
+      if (r === c) continue;
+      const f = A[r][c] / d;
+      if (!f) continue;
+      for (let k = c; k < n; k++) A[r][k] -= f * A[c][k];
+      b[r] -= f * b[c];
+    }
+  }
+  return b.map((v, i) => v / A[i][i]); // h0..h7 (h8 = 1)
+}
+
+function scanDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+// Recorta e endireita o documento (correção de perspectiva + interpolação bilinear)
+function scanRetificar(img, cantos, maxLado) {
+  const [tl, tr, br, bl] = cantos;
+  let W = Math.max(scanDist(tl, tr), scanDist(bl, br));
+  let H = Math.max(scanDist(tl, bl), scanDist(tr, br));
+  const k = Math.min(1, (maxLado || 2200) / Math.max(W, H));
+  W = Math.max(1, Math.round(W * k)); H = Math.max(1, Math.round(H * k));
+  const h = scanHomografia(
+    [{ x: 0, y: 0 }, { x: W - 1, y: 0 }, { x: W - 1, y: H - 1 }, { x: 0, y: H - 1 }],
+    [tl, tr, br, bl]
+  );
+  const out = scanNovaImagem(W, H);
+  if (!h) return out;
+  const s = img.data, o = out.data, iw = img.width, ih = img.height;
+  for (let v = 0; v < H; v++) {
+    for (let u = 0; u < W; u++) {
+      const den = h[6] * u + h[7] * v + 1;
+      let x = (h[0] * u + h[1] * v + h[2]) / den;
+      let y = (h[3] * u + h[4] * v + h[5]) / den;
+      if (x < 0) x = 0; else if (x > iw - 1) x = iw - 1;
+      if (y < 0) y = 0; else if (y > ih - 1) y = ih - 1;
+      const x0 = x | 0, y0 = y | 0;
+      const x1 = x0 < iw - 1 ? x0 + 1 : x0, y1 = y0 < ih - 1 ? y0 + 1 : y0;
+      const fx = x - x0, fy = y - y0;
+      const i00 = (y0 * iw + x0) * 4, i10 = (y0 * iw + x1) * 4, i01 = (y1 * iw + x0) * 4, i11 = (y1 * iw + x1) * 4;
+      const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      const j = (v * W + u) * 4;
+      o[j]     = s[i00]     * w00 + s[i10]     * w10 + s[i01]     * w01 + s[i11]     * w11;
+      o[j + 1] = s[i00 + 1] * w00 + s[i10 + 1] * w10 + s[i01 + 1] * w01 + s[i11 + 1] * w11;
+      o[j + 2] = s[i00 + 2] * w00 + s[i10 + 2] * w10 + s[i01 + 2] * w01 + s[i11 + 2] * w11;
+      o[j + 3] = 255;
+    }
+  }
+  return out;
+}
+
+// Gira 90° no sentido horário
+function scanGirar90(img) {
+  const W = img.width, H = img.height, out = scanNovaImagem(H, W), s = img.data, o = out.data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, j = (x * H + (H - 1 - y)) * 4;
+    o[j] = s[i]; o[j + 1] = s[i + 1]; o[j + 2] = s[i + 2]; o[j + 3] = 255;
+  }
+  return out;
+}
+
+function scanLuminancia(img) {
+  const n = img.width * img.height, L = new Uint8ClampedArray(n), d = img.data;
+  for (let i = 0, j = 0; i < n; i++, j += 4) L[i] = (d[j] * 77 + d[j + 1] * 150 + d[j + 2] * 29) >> 8;
+  return L;
+}
+
+// Estima o brilho do papel em cada região (para remover sombras e luz desigual)
+function scanFundo(L, W, H) {
+  const B = Math.max(8, Math.round(Math.max(W, H) / 36));
+  const gw = Math.ceil(W / B), gh = Math.ceil(H / B), g = new Float32Array(gw * gh);
+  for (let by = 0; by < gh; by++) for (let bx = 0; bx < gw; bx++) {
+    const x0 = bx * B, y0 = by * B, x1 = Math.min(W, x0 + B), y1 = Math.min(H, y0 + B);
+    let soma = 0, n = 0;
+    for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { soma += L[y * W + x]; n++; }
+    const m = soma / n;
+    let s2 = 0, n2 = 0; // média só dos pixels mais claros que a média = papel, ignorando o texto
+    for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const v = L[y * W + x]; if (v >= m) { s2 += v; n2++; } }
+    g[by * gw + bx] = n2 ? s2 / n2 : m;
+  }
+  // Áreas escuras grandes (foto 3x4, tarjas) não são papel: puxa o brilho dos vizinhos (máximo num raio de 3 blocos)
+  const R = 3, gm = new Float32Array(gw * gh);
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+    let m = 0;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      const yy = y + dy, xx = x + dx;
+      if (yy >= 0 && yy < gh && xx >= 0 && xx < gw && g[yy * gw + xx] > m) m = g[yy * gw + xx];
+    }
+    gm[y * gw + x] = m;
+  }
+  const g2 = new Float32Array(gw * gh); // suaviza a grade (3x3)
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+    let s = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const yy = y + dy, xx = x + dx;
+      if (yy >= 0 && yy < gh && xx >= 0 && xx < gw) { s += gm[yy * gw + xx]; n++; }
+    }
+    g2[y * gw + x] = Math.max(40, s / n);
+  }
+  return { g: g2, gw, gh, B };
+}
+
+// Filtros: 'original' | 'cor' (cores ajustadas) | 'realce' (remove sombra) | 'pb' (preto e branco)
+function scanFiltro(img, modo) {
+  const W = img.width, H = img.height, d = img.data, out = scanNovaImagem(W, H), o = out.data;
+  if (modo === 'original') { o.set(d); return out; }
+  const L = scanLuminancia(img);
+
+  if (modo === 'cor') {
+    const hist = new Uint32Array(256); let n = 0;
+    for (let i = 0; i < L.length; i += 3) { hist[L[i]]++; n++; }
+    let acc = 0, lo = 0, hi = 255;
+    for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= n * 0.01) { lo = v; break; } }
+    acc = 0;
+    for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.01) { hi = v; break; } }
+    if (hi - lo < 40) { o.set(d); return out; }
+    const k = 255 / (hi - lo);
+    for (let j = 0; j < d.length; j += 4) {
+      o[j] = (d[j] - lo) * k; o[j + 1] = (d[j + 1] - lo) * k; o[j + 2] = (d[j + 2] - lo) * k; o[j + 3] = 255;
+    }
+    return out;
+  }
+
+  const { g, gw, gh, B } = scanFundo(L, W, H);
+  const pb = modo === 'pb';
+  for (let y = 0; y < H; y++) {
+    let gy = (y + 0.5) / B - 0.5; if (gy < 0) gy = 0; if (gy > gh - 1) gy = gh - 1;
+    const y0 = gy | 0, y1 = Math.min(gh - 1, y0 + 1), fy = gy - y0;
+    for (let x = 0; x < W; x++) {
+      let gx = (x + 0.5) / B - 0.5; if (gx < 0) gx = 0; if (gx > gw - 1) gx = gw - 1;
+      const x0 = gx | 0, x1 = Math.min(gw - 1, x0 + 1), fx = gx - x0;
+      const bg = (g[y0 * gw + x0] * (1 - fx) + g[y0 * gw + x1] * fx) * (1 - fy)
+               + (g[y1 * gw + x0] * (1 - fx) + g[y1 * gw + x1] * fx) * fy;
+      const ganho = 245 / bg;
+      const j = (y * W + x) * 4;
+      if (pb) {
+        const v = L[y * W + x] * ganho;
+        const c = (v - 90) * 255 / (225 - 90);
+        o[j] = o[j + 1] = o[j + 2] = c;
+      } else {
+        o[j]     = (d[j] * ganho - 20) * 1.09;
+        o[j + 1] = (d[j + 1] * ganho - 20) * 1.09;
+        o[j + 2] = (d[j + 2] * ganho - 20) * 1.09;
+      }
+      o[j + 3] = 255;
+    }
+  }
+  return out;
+}
+
+// Detecta as bordas do documento com OpenCV. img deve vir reduzida (~600px).
+// Retorna 4 cantos [TL,TR,BR,BL] nas coordenadas de img, ou null.
+function scanDetectarCantos(cv, img) {
+  const W = img.width, H = img.height, area = W * H;
+  const lim = Math.hypot(W, H) * 0.05;
+  const quinas = [[0, 0], [W, 0], [W, H], [0, H]];
+  const mats = [];
+  const novo = m => { mats.push(m); return m; };
+  let melhor = null, melhorNota = 0;
+  try {
+    const src = novo(cv.matFromImageData(img));
+    const gray = novo(new cv.Mat());
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
+    const k3 = novo(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3)));
+    const k5 = novo(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5)));
+
+    // Mapa de bordas usado para dar nota aos candidatos
+    const bordas = novo(new cv.Mat());
+    cv.Canny(gray, bordas, 30, 100);
+    cv.dilate(bordas, bordas, k5);
+    const B = bordas.data;
+
+    // Fração do contorno do quadrilátero que passa sobre bordas reais da imagem
+    const apoio = p => {
+      let hit = 0, tot = 0;
+      for (let i = 0; i < 4; i++) {
+        const a = p[i], b = p[(i + 1) % 4];
+        const n = Math.max(2, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 2));
+        for (let t = 1; t < n; t++) {
+          const x = Math.round(a.x + (b.x - a.x) * t / n), y = Math.round(a.y + (b.y - a.y) * t / n);
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          tot++; if (B[y * W + x]) hit++;
+        }
+      }
+      return tot ? hit / tot : 0;
+    };
+
+    const avaliar = poly => {
+      if (poly.rows !== 4 || !cv.isContourConvex(poly)) return;
+      const qa = cv.contourArea(poly);
+      if (qa < area * 0.12 || qa > area * 0.985) return;
+      const p = [];
+      for (let k = 0; k < 4; k++) p.push({ x: poly.data32S[k * 2], y: poly.data32S[k * 2 + 1] });
+      // ignora a moldura da própria foto
+      const naBorda = p.filter(q => quinas.some(([qx, qy]) => Math.hypot(q.x - qx, q.y - qy) < lim)).length;
+      if (naBorda >= 3) return;
+      const ap = apoio(p);
+      if (ap < 0.6) return;
+      const nota = qa * ap * ap;
+      if (nota > melhorNota) { melhorNota = nota; melhor = p; }
+    };
+
+    const quadDe = (contorno) => {
+      const peri = cv.arcLength(contorno, true);
+      for (const eps of [0.015, 0.02, 0.03, 0.045, 0.06]) {
+        const ap = new cv.Mat();
+        cv.approxPolyDP(contorno, ap, eps * peri, true);
+        const lados = ap.rows;
+        if (lados === 4) { avaliar(ap); ap.delete(); return; }
+        ap.delete();
+        if (lados < 4) return;
+      }
+    };
+
+    const tentativas = [
+      m => { cv.Canny(gray, m, 30, 90); cv.dilate(m, m, k3); },
+      m => { cv.Canny(gray, m, 60, 180); cv.dilate(m, m, k3); cv.dilate(m, m, k3); },
+      m => { cv.threshold(gray, m, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); cv.morphologyEx(m, m, cv.MORPH_OPEN, k5); },
+      m => { cv.threshold(gray, m, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU); cv.morphologyEx(m, m, cv.MORPH_OPEN, k5); },
+    ];
+
+    for (const prep of tentativas) {
+      const bin = novo(new cv.Mat());
+      prep(bin);
+      const contornos = novo(new cv.MatVector());
+      const hier = novo(new cv.Mat());
+      cv.findContours(bin, contornos, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+      for (let i = 0; i < contornos.size(); i++) {
+        const c = contornos.get(i);
+        if (cv.contourArea(c) >= area * 0.06 || cv.arcLength(c, true) > (W + H) * 0.8) {
+          quadDe(c);
+          const hull = new cv.Mat();
+          cv.convexHull(c, hull, false, true);
+          quadDe(hull);
+          hull.delete();
+        }
+        c.delete();
+      }
+      if (melhorNota > area * 0.25 * 0.8) break; // documento grande e bem definido: basta
+    }
+  } catch (e) {
+    console.warn('Scanner: falha na detecção', e);
+    melhor = null;
+  } finally {
+    mats.forEach(m => { try { m.delete(); } catch (e) {} });
+  }
+  return melhor ? scanOrdenarCantos(melhor) : null;
+}
+
+// ---------- Carregamento do OpenCV (só quando o colaborador vai escanear) ----------
+const SCAN_OPENCV_URLS = [
+  'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js',
+  'https://docs.opencv.org/4.10.0/opencv.js'
+];
+let _scanCvPromise = null;
+
+// Atenção: o objeto "cv" tem um método .then próprio que trava o navegador se for
+// entregue a uma Promise. Por isso a Promise resolve só true/false e o cv é lido de window.cv.
+function scanCvPronto() { return !!(window.cv && window.cv.Mat); }
+
+function scanCarregarOpenCV() {
+  if (scanCvPronto()) return Promise.resolve(true);
+  if (_scanCvPromise) return _scanCvPromise;
+  _scanCvPromise = new Promise(resolve => {
+    let i = 0, terminou = false;
+    const fim = ok => {
+      if (terminou) return;
+      terminou = true;
+      if (!ok) _scanCvPromise = null; // permite tentar de novo na próxima foto
+      resolve(ok);
+    };
+    setTimeout(() => fim(false), 90000);
+    // O OpenCV inicializa sozinho depois de baixar; aguardamos até ele ficar pronto
+    const aguardar = () => {
+      const t0 = Date.now();
+      const iv = setInterval(() => {
+        if (scanCvPronto()) { clearInterval(iv); fim(true); }
+        else if (Date.now() - t0 > 40000) { clearInterval(iv); fim(false); }
+      }, 100);
+    };
+    const tentar = () => {
+      if (i >= SCAN_OPENCV_URLS.length) return fim(false);
+      const s = document.createElement('script');
+      s.src = SCAN_OPENCV_URLS[i++];
+      s.async = true;
+      s.onload = aguardar;
+      s.onerror = () => { s.remove(); tentar(); };
+      document.head.appendChild(s);
+    };
+    tentar();
+  });
+  return _scanCvPromise;
+}
+
+// ---------- Estado e tela do scanner ----------
+const SCAN = { aberto: false, sessao: 0 };
+const scanEsperar = ms => new Promise(r => setTimeout(r, ms));
+const scanEl = id => document.getElementById(id);
+
+function scanMontarTela() {
+  if (scanEl('scan-modal')) return;
+  const div = document.createElement('div');
+  div.id = 'scan-modal';
+  div.className = 'scan-modal';
+  div.style.display = 'none';
+  div.innerHTML = `
+    <div class="scan-topo">
+      <button class="scan-fechar" onclick="scanFechar()" aria-label="Fechar">✕</button>
+      <div class="scan-topo-txt">
+        <div class="scan-titulo" id="scan-titulo"></div>
+        <div class="scan-doc" id="scan-doc"></div>
+      </div>
+    </div>
+    <div class="scan-status" id="scan-status"></div>
+    <div class="scan-palco" id="scan-palco">
+      <div class="scan-quadro" id="scan-quadro">
+        <canvas id="scan-foto"></canvas>
+        <svg id="scan-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <canvas id="scan-resultado" class="scan-resultado"></canvas>
+      <canvas id="scan-lupa" class="scan-lupa" width="240" height="240"></canvas>
+      <div class="scan-ocupado" id="scan-ocupado"><div class="scan-giro"></div><span id="scan-ocupado-txt">Processando...</span></div>
+    </div>
+    <div class="scan-rodape" id="scan-rodape-1">
+      <div class="scan-linha">
+        <button class="scan-btn-sec" onclick="scanOutraFoto()">🔄 <span id="scan-txt-outra">Tirar outra</span></button>
+        <button class="scan-btn-sec" onclick="scanImagemInteira()">⛶ Imagem inteira</button>
+      </div>
+      <button class="scan-btn-pri" onclick="scanRecortar()">Recortar e continuar ✂️</button>
+    </div>
+    <div class="scan-rodape" id="scan-rodape-2" style="display:none;">
+      <div class="scan-filtros">
+        <button class="scan-chip" data-f="original" onclick="scanAplicarFiltro('original')">Original</button>
+        <button class="scan-chip" data-f="cor" onclick="scanAplicarFiltro('cor')">Cores</button>
+        <button class="scan-chip" data-f="realce" onclick="scanAplicarFiltro('realce')">Realçado</button>
+        <button class="scan-chip" data-f="pb" onclick="scanAplicarFiltro('pb')">P&amp;B</button>
+      </div>
+      <div class="scan-linha">
+        <button class="scan-btn-sec scan-btn-girar" onclick="scanGirar()" title="Girar 90°" aria-label="Girar 90 graus">↻</button>
+        <button class="scan-btn-sec" onclick="scanEtapa(1)">← Ajustar cantos</button>
+        <button class="scan-btn-pri" onclick="scanEnviar()">Enviar ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+
+  const svg = scanEl('scan-svg');
+  svg.addEventListener('pointerdown', scanToqueInicio);
+  svg.addEventListener('pointermove', scanToqueMover);
+  svg.addEventListener('pointerup', scanToqueFim);
+  svg.addEventListener('pointercancel', scanToqueFim);
+  window.addEventListener('resize', () => { if (SCAN.aberto) scanAjustarTamanho(); });
+  document.addEventListener('keydown', e => { if (SCAN.aberto && e.key === 'Escape') scanFechar(); });
+}
+
+function scanStatus(txt, tipo) {
+  const el = scanEl('scan-status');
+  if (!el) return;
+  el.textContent = txt || '';
+  el.className = 'scan-status' + (tipo ? ' scan-status-' + tipo : '');
+  el.style.display = txt ? '' : 'none';
+}
+
+function scanOcupado(txt) {
+  const el = scanEl('scan-ocupado');
+  if (!el) return;
+  if (txt) { scanEl('scan-ocupado-txt').textContent = txt; el.style.display = 'flex'; }
+  else el.style.display = 'none';
+}
+
+// ---------- Abrir o scanner ----------
+function abrirCameraCollab(colabId, docId) {
+  scanCarregarOpenCV(); // já começa a baixar enquanto o colaborador tira a foto
+  scanEscolherArquivo(colabId, docId, 'camera');
+}
+
+function scanEscolherArquivo(colabId, docId, origem) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  if (origem === 'camera') input.capture = 'environment';
+  input.onchange = () => { const f = input.files[0]; if (f) scanIniciar(colabId, docId, f, origem); };
+  input.click();
+}
+
 async function uploadDocCollab(colabId, docId, input) {
   const file = input.files[0];
-  if(!file) return;
+  input.value = ''; // permite escolher o mesmo arquivo de novo
+  if (!file) return;
+  const ehPdf = /pdf/i.test(file.type) || /\.pdf$/i.test(file.name);
+  if (!ehPdf) { // foto da galeria também passa pelo scanner
+    scanCarregarOpenCV();
+    scanIniciar(colabId, docId, file, 'galeria');
+    return;
+  }
   await uploadArquivo(colabId, docId, file);
   await carregarVisaoColaborador(colabId);
 }
 
-function abrirCameraCollab(colabId, docId) {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
-  input.onchange = async () => { if(input.files[0]) { await uploadArquivo(colabId, docId, input.files[0]); await carregarVisaoColaborador(colabId); } };
-  input.click();
+async function scanCarregarImagem(file, max) {
+  let fonte, w, h;
+  try {
+    fonte = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    w = fonte.width; h = fonte.height;
+  } catch (e) {
+    fonte = await new Promise((res, rej) => {
+      const url = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => { URL.revokeObjectURL(url); res(im); };
+      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Imagem inválida')); };
+      im.src = url;
+    });
+    w = fonte.naturalWidth; h = fonte.naturalHeight;
+  }
+  if (!w || !h) throw new Error('Imagem vazia');
+  const k = Math.min(1, max / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(fonte, 0, 0, c.width, c.height);
+  if (fonte.close) fonte.close();
+  return c;
+}
+
+async function scanIniciar(colabId, docId, file, origem) {
+  let canvas = null;
+  try {
+    file = await converterHeicSeNecessario(file);
+    showLoading('Abrindo a foto...');
+    canvas = await scanCarregarImagem(file, 3000);
+  } catch (e) {
+    console.warn('Scanner: não abriu a imagem', e);
+  }
+  hideLoading();
+
+  if (!canvas) { // não deu para abrir no scanner: envia do jeito antigo
+    await uploadArquivo(colabId, docId, file);
+    await carregarVisaoColaborador(colabId);
+    return;
+  }
+
+  scanMontarTela();
+  const W = canvas.width, H = canvas.height, m = 0.08;
+  Object.assign(SCAN, {
+    aberto: true, sessao: SCAN.sessao + 1, colabId, docId, origem, canvas, W, H,
+    imgData: null, base: null, final: null, filtro: 'realce', tocado: false, arrasto: -1,
+    cantos: [{ x: W * m, y: H * m }, { x: W * (1 - m), y: H * m }, { x: W * (1 - m), y: H * (1 - m) }, { x: W * m, y: H * (1 - m) }]
+  });
+  const doc = DOCS.find(d => d.id === docId);
+  scanEl('scan-doc').textContent = doc ? doc.n : '';
+  scanEl('scan-txt-outra').textContent = origem === 'galeria' ? 'Escolher outra' : 'Tirar outra';
+  scanEl('scan-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  scanEtapa(1);
+  scanDetectar();
+}
+
+async function scanDetectar() {
+  const sessao = SCAN.sessao;
+  scanStatus(scanCvPronto()
+    ? '🔍 Procurando as bordas do documento...'
+    : '⏳ Preparando o recorte automático (só demora na primeira vez)...');
+  const ok = await scanCarregarOpenCV();
+  if (!SCAN.aberto || sessao !== SCAN.sessao) return;
+  const cv = ok ? window.cv : null;
+  if (!cv) {
+    scanStatus('Arraste os cantos verdes até as bordas do documento.', 'aviso');
+    return;
+  }
+  scanStatus('🔍 Procurando as bordas do documento...');
+  await scanEsperar(30);
+  const k = Math.min(1, 600 / Math.max(SCAN.W, SCAN.H));
+  const c = document.createElement('canvas');
+  c.width = Math.round(SCAN.W * k); c.height = Math.round(SCAN.H * k);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(SCAN.canvas, 0, 0, c.width, c.height);
+  const cantos = scanDetectarCantos(cv, ctx.getImageData(0, 0, c.width, c.height));
+  if (!SCAN.aberto || sessao !== SCAN.sessao) return;
+  if (cantos) {
+    if (!SCAN.tocado) {
+      SCAN.cantos = cantos.map(p => ({ x: p.x / k, y: p.y / k }));
+      scanDesenharMarcacao();
+    }
+    scanStatus('✅ Documento encontrado. Arraste os cantos se precisar ajustar.', 'ok');
+  } else {
+    scanStatus('Não encontramos as bordas sozinhos. Arraste os cantos verdes até as bordas do documento.', 'aviso');
+  }
+}
+
+// ---------- Etapas ----------
+function scanEtapa(n) {
+  SCAN.etapa = n;
+  scanEl('scan-rodape-1').style.display = n === 1 ? '' : 'none';
+  scanEl('scan-rodape-2').style.display = n === 2 ? '' : 'none';
+  scanEl('scan-quadro').style.display = n === 1 ? '' : 'none';
+  scanEl('scan-resultado').style.display = n === 2 ? '' : 'none';
+  scanEl('scan-titulo').textContent = n === 1 ? 'Ajuste os cantos do documento' : 'Confira antes de enviar';
+  if (n === 2) scanStatus('Escolha o filtro que deixa o documento mais legível.');
+  else if (SCAN.base) scanStatus('Arraste os cantos verdes até as bordas do documento.');
+  scanAjustarTamanho();
+}
+
+function scanAreaPalco() {
+  const r = scanEl('scan-palco').getBoundingClientRect();
+  return { w: Math.max(50, r.width - 24), h: Math.max(50, r.height - 24) };
+}
+
+function scanAjustarTamanho() {
+  const { w, h } = scanAreaPalco();
+  if (SCAN.etapa === 1) {
+    const esc = Math.min(w / SCAN.W, h / SCAN.H);
+    SCAN.escala = esc;
+    const dw = Math.round(SCAN.W * esc), dh = Math.round(SCAN.H * esc);
+    const quadro = scanEl('scan-quadro');
+    quadro.style.width = dw + 'px';
+    quadro.style.height = dh + 'px';
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const foto = scanEl('scan-foto');
+    foto.width = Math.round(dw * dpr); foto.height = Math.round(dh * dpr);
+    foto.getContext('2d').drawImage(SCAN.canvas, 0, 0, foto.width, foto.height);
+    scanEl('scan-svg').setAttribute('viewBox', `0 0 ${SCAN.W} ${SCAN.H}`);
+    scanDesenharMarcacao();
+  } else if (SCAN.final) {
+    const r = scanEl('scan-resultado');
+    const esc = Math.min(w / SCAN.final.width, h / SCAN.final.height);
+    r.style.width = Math.round(SCAN.final.width * esc) + 'px';
+    r.style.height = Math.round(SCAN.final.height * esc) + 'px';
+  }
+}
+
+function scanDesenharMarcacao() {
+  const { W, H, cantos, escala } = SCAN;
+  if (!escala) return;
+  const r = 11 / escala, sw = 2.5 / escala;
+  const caminho = cantos.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join(' ') + 'Z';
+  scanEl('scan-svg').innerHTML =
+    `<path d="M0 0H${W}V${H}H0Z ${caminho}" fill="rgba(0,0,0,0.5)" fill-rule="evenodd"/>` +
+    `<path d="${caminho}" fill="rgba(62,224,165,0.10)" stroke="#3ee0a5" stroke-width="${sw}" stroke-linejoin="round"/>` +
+    cantos.map((p, i) =>
+      `<circle cx="${p.x}" cy="${p.y}" r="${r * 2}" fill="rgba(62,224,165,${SCAN.arrasto === i ? 0.45 : 0.22})"/>` +
+      `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="#fff" stroke="#1d9e75" stroke-width="${sw * 1.4}"/>`
+    ).join('');
+}
+
+// ---------- Arrastar cantos (dedo ou mouse) ----------
+function scanPonto(e) {
+  const r = scanEl('scan-svg').getBoundingClientRect();
+  return { x: (e.clientX - r.left) * SCAN.W / r.width, y: (e.clientY - r.top) * SCAN.H / r.height };
+}
+
+function scanToqueInicio(e) {
+  if (SCAN.etapa !== 1) return;
+  const p = scanPonto(e);
+  let idx = -1, menor = Infinity;
+  SCAN.cantos.forEach((c, i) => { const d = Math.hypot(c.x - p.x, c.y - p.y); if (d < menor) { menor = d; idx = i; } });
+  if (menor * SCAN.escala > 56) return; // longe de qualquer canto
+  e.preventDefault();
+  SCAN.arrasto = idx;
+  SCAN.tocado = true;
+  SCAN.desvio = { x: SCAN.cantos[idx].x - p.x, y: SCAN.cantos[idx].y - p.y };
+  try { scanEl('scan-svg').setPointerCapture(e.pointerId); } catch (err) {}
+  scanDesenharMarcacao();
+  scanDesenharLupa();
+}
+
+function scanToqueMover(e) {
+  if (SCAN.arrasto < 0) return;
+  e.preventDefault();
+  const p = scanPonto(e);
+  SCAN.cantos[SCAN.arrasto] = {
+    x: Math.max(0, Math.min(SCAN.W, p.x + SCAN.desvio.x)),
+    y: Math.max(0, Math.min(SCAN.H, p.y + SCAN.desvio.y))
+  };
+  scanDesenharMarcacao();
+  scanDesenharLupa();
+}
+
+function scanToqueFim() {
+  if (SCAN.arrasto < 0) return;
+  SCAN.arrasto = -1;
+  scanEl('scan-lupa').style.display = 'none';
+  scanDesenharMarcacao();
+}
+
+// Lupa: mostra ampliado o canto que está sob o dedo
+function scanDesenharLupa() {
+  const lupa = scanEl('scan-lupa'), i = SCAN.arrasto;
+  if (i < 0) return;
+  const p = SCAN.cantos[i], T = lupa.width;
+  const tam = 130 / (SCAN.escala * 2.6); // área da foto mostrada na lupa
+  const sx = p.x - tam / 2, sy = p.y - tam / 2, f = T / tam;
+  const ctx = lupa.getContext('2d');
+  ctx.fillStyle = '#0f1a14';
+  ctx.fillRect(0, 0, T, T);
+  const x0 = Math.max(0, sx), y0 = Math.max(0, sy);
+  const x1 = Math.min(SCAN.W, sx + tam), y1 = Math.min(SCAN.H, sy + tam);
+  if (x1 > x0 && y1 > y0) ctx.drawImage(SCAN.canvas, x0, y0, x1 - x0, y1 - y0, (x0 - sx) * f, (y0 - sy) * f, (x1 - x0) * f, (y1 - y0) * f);
+  ctx.strokeStyle = '#3ee0a5';
+  ctx.lineWidth = 4;
+  [SCAN.cantos[(i + 1) % 4], SCAN.cantos[(i + 3) % 4]].forEach(q => {
+    ctx.beginPath(); ctx.moveTo(T / 2, T / 2); ctx.lineTo((q.x - sx) * f, (q.y - sy) * f); ctx.stroke();
+  });
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(T / 2 - 22, T / 2); ctx.lineTo(T / 2 + 22, T / 2);
+  ctx.moveTo(T / 2, T / 2 - 22); ctx.lineTo(T / 2, T / 2 + 22);
+  ctx.stroke();
+  // fica do lado oposto ao dedo, para não ser coberta
+  const esquerda = p.x > SCAN.W / 2;
+  lupa.style.left = esquerda ? '12px' : 'auto';
+  lupa.style.right = esquerda ? 'auto' : '12px';
+  lupa.style.display = 'block';
+}
+
+// ---------- Ações ----------
+function scanOutraFoto() {
+  scanEscolherArquivo(SCAN.colabId, SCAN.docId, SCAN.origem);
+}
+
+function scanImagemInteira() {
+  const { W, H } = SCAN;
+  SCAN.cantos = [{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+  SCAN.tocado = true;
+  scanDesenharMarcacao();
+}
+
+function scanAreaQuad(c) {
+  let a = 0;
+  for (let i = 0; i < 4; i++) { const p = c[i], q = c[(i + 1) % 4]; a += p.x * q.y - q.x * p.y; }
+  return Math.abs(a) / 2;
+}
+
+async function scanRecortar() {
+  const cantos = scanOrdenarCantos(SCAN.cantos);
+  if (scanAreaQuad(cantos) < SCAN.W * SCAN.H * 0.02) {
+    scanStatus('A área marcada está muito pequena. Afaste os cantos até as bordas do documento.', 'aviso');
+    return;
+  }
+  scanOcupado('Recortando...');
+  await scanEsperar(40);
+  try {
+    if (!SCAN.imgData) SCAN.imgData = SCAN.canvas.getContext('2d').getImageData(0, 0, SCAN.W, SCAN.H);
+    SCAN.base = scanRetificar(SCAN.imgData, cantos, 2200);
+  } catch (e) {
+    scanOcupado(null);
+    alert('Não foi possível recortar a imagem: ' + e.message);
+    return;
+  }
+  scanOcupado(null);
+  scanEtapa(2);
+  scanAplicarFiltro(SCAN.filtro);
+}
+
+async function scanAplicarFiltro(f) {
+  if (!SCAN.base) return;
+  SCAN.filtro = f;
+  document.querySelectorAll('#scan-modal .scan-chip[data-f]').forEach(b => b.classList.toggle('ativo', b.dataset.f === f));
+  scanOcupado('Aplicando filtro...');
+  await scanEsperar(20);
+  const r = scanFiltro(SCAN.base, f);
+  SCAN.final = r;
+  const cv = scanEl('scan-resultado');
+  cv.width = r.width; cv.height = r.height;
+  cv.getContext('2d').putImageData(new ImageData(r.data, r.width, r.height), 0, 0);
+  scanOcupado(null);
+  scanAjustarTamanho();
+}
+
+async function scanGirar() {
+  if (!SCAN.base) return;
+  scanOcupado('Girando...');
+  await scanEsperar(20);
+  SCAN.base = scanGirar90(SCAN.base);
+  await scanAplicarFiltro(SCAN.filtro);
+}
+
+async function scanEnviar() {
+  const r = SCAN.final;
+  if (!r) return;
+  scanOcupado('Preparando o envio...');
+  await scanEsperar(20);
+  const c = document.createElement('canvas');
+  c.width = r.width; c.height = r.height;
+  c.getContext('2d').putImageData(new ImageData(r.data, r.width, r.height), 0, 0);
+  const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
+  scanOcupado(null);
+  if (!blob) { alert('Não foi possível gerar a imagem. Tente de novo.'); return; }
+  const { colabId, docId } = SCAN;
+  const existente = (docsMap[colabId] || []).find(x => x.doc_id === docId);
+  const pag = getArquivos(existente).length + 1;
+  const file = new File([blob], `Documento digitalizado - pag ${pag}.jpg`, { type: 'image/jpeg' });
+  scanFechar();
+  await uploadArquivo(colabId, docId, file);
+  await carregarVisaoColaborador(colabId);
+  mostrarToastFluxo('✅ Enviado! Se o documento tiver verso, toque em 📷 de novo.', 'ok');
+}
+
+function scanFechar() {
+  SCAN.aberto = false;
+  SCAN.sessao++;
+  SCAN.arrasto = -1;
+  SCAN.canvas = null; SCAN.imgData = null; SCAN.base = null; SCAN.final = null;
+  const m = scanEl('scan-modal');
+  if (m) m.style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 // =============================================
