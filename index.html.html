@@ -723,7 +723,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;font-size:11px;color:var(--text-muted);">
       <a class="help-link" href="#" onclick="resetarConfig()">⚙ Reconfigurar conexão</a>
     </div>
-    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 · com scanner 📷</div>
+    <div style="margin-top:8px;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (2) · com scanner 📷</div>
   </div>
 </div>
 
@@ -787,7 +787,7 @@ create policy if not exists "allow_all_fluxo" on fluxo_pipeline for all using (t
     <div style="margin-top:14px;padding:12px;background:var(--gray-bg);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.7;">
       Ao enviar este formulário, você concorda com o tratamento de seus dados pessoais em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD)</strong>, exclusivamente para fins relacionados a este atendimento.
     </div>
-    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 · com scanner 📷</div>
+    <div style="margin-top:10px;text-align:center;font-size:10px;color:#b0b0aa;">Versão 28/10/2026 (2) · com scanner 📷</div>
   </div>
 </div>
 
@@ -3564,16 +3564,25 @@ function scanOcupado(txt) {
 
 // ---------- Abrir o scanner ----------
 function abrirCameraCollab(colabId, docId) {
-  scanCarregarOpenCV(); // já começa a baixar enquanto o colaborador tira a foto
+  // a detecção só começa a baixar depois da foto: baixar com a câmera aberta pode fazer o celular recarregar a página
   scanEscolherArquivo(colabId, docId, 'camera');
 }
 
 function scanEscolherArquivo(colabId, docId, origem) {
+  const antigo = document.getElementById('scan-input-arquivo');
+  if (antigo) antigo.remove();
   const input = document.createElement('input');
   input.type = 'file';
+  input.id = 'scan-input-arquivo';
   input.accept = 'image/*';
-  if (origem === 'camera') input.capture = 'environment';
-  input.onchange = () => { const f = input.files[0]; if (f) scanIniciar(colabId, docId, f, origem); };
+  if (origem === 'camera') input.setAttribute('capture', 'environment');
+  input.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(input); // no iPhone, um campo fora da página pode não avisar a foto escolhida
+  input.addEventListener('change', () => {
+    const f = input.files && input.files[0];
+    setTimeout(() => input.remove(), 1000);
+    if (f) scanIniciar(colabId, docId, f, origem);
+  });
   input.click();
 }
 
@@ -3583,7 +3592,6 @@ async function uploadDocCollab(colabId, docId, input) {
   if (!file) return;
   const ehPdf = /pdf/i.test(file.type) || /\.pdf$/i.test(file.name);
   if (!ehPdf) { // foto da galeria também passa pelo scanner
-    scanCarregarOpenCV();
     scanIniciar(colabId, docId, file, 'galeria');
     return;
   }
@@ -3591,46 +3599,71 @@ async function uploadDocCollab(colabId, docId, input) {
   await carregarVisaoColaborador(colabId);
 }
 
+function scanComLimite(promessa, ms, motivo) {
+  return Promise.race([promessa, new Promise((_, rej) => setTimeout(() => rej(new Error(motivo)), ms))]);
+}
+
 async function scanCarregarImagem(file, max) {
-  let fonte, w, h;
+  let fonte = null, w = 0, h = 0, erroImg = null;
+  // 1ª tentativa: <img> (funciona em praticamente todos os celulares e já respeita a rotação da foto)
+  const url = URL.createObjectURL(file);
   try {
-    fonte = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    w = fonte.width; h = fonte.height;
-  } catch (e) {
-    fonte = await new Promise((res, rej) => {
-      const url = URL.createObjectURL(file);
+    fonte = await scanComLimite(new Promise((res, rej) => {
       const im = new Image();
-      im.onload = () => { URL.revokeObjectURL(url); res(im); };
-      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Imagem inválida')); };
+      im.onload = () => res(im);
+      im.onerror = () => rej(new Error('o navegador não conseguiu abrir este formato de imagem'));
       im.src = url;
-    });
+    }), 20000, 'a foto demorou demais para abrir');
     w = fonte.naturalWidth; h = fonte.naturalHeight;
+  } catch (e) {
+    erroImg = e;
+    fonte = null;
   }
-  if (!w || !h) throw new Error('Imagem vazia');
+  // 2ª tentativa: createImageBitmap
+  if (!fonte && window.createImageBitmap) {
+    try {
+      fonte = await scanComLimite(createImageBitmap(file), 20000, 'a foto demorou demais para abrir');
+      w = fonte.width; h = fonte.height;
+    } catch (e) { fonte = null; }
+  }
+  if (!fonte || !w || !h) { URL.revokeObjectURL(url); throw erroImg || new Error('imagem vazia'); }
+
   const k = Math.min(1, max / Math.max(w, h));
   const c = document.createElement('canvas');
   c.width = Math.round(w * k); c.height = Math.round(h * k);
-  c.getContext('2d').drawImage(fonte, 0, 0, c.width, c.height);
+  const ctx = c.getContext('2d');
+  if (!ctx) { URL.revokeObjectURL(url); throw new Error('sem memória para abrir a foto'); }
+  ctx.drawImage(fonte, 0, 0, c.width, c.height);
   if (fonte.close) fonte.close();
+  URL.revokeObjectURL(url);
+  // confere se a imagem foi desenhada de fato (alguns celulares devolvem tela vazia sem avisar)
+  try { ctx.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1); }
+  catch (e) { throw new Error('o celular bloqueou a leitura da foto'); }
   return c;
 }
 
 async function scanIniciar(colabId, docId, file, origem) {
-  let canvas = null;
+  let canvas = null, motivo = '';
   try {
     file = await converterHeicSeNecessario(file);
     showLoading('Abrindo a foto...');
-    canvas = await scanCarregarImagem(file, 3000);
+    canvas = await scanCarregarImagem(file, 2400);
   } catch (e) {
+    motivo = (e && e.message) || String(e);
     console.warn('Scanner: não abriu a imagem', e);
   }
   hideLoading();
 
-  if (!canvas) { // não deu para abrir no scanner: envia do jeito antigo
+  if (!canvas) { // não deu para abrir no scanner: avisa o motivo e envia sem recorte
+    const tipo = (file && (file.type || file.name)) || 'desconhecido';
+    if (!confirm('Não foi possível abrir o recorte automático para esta foto.\n\nMotivo: ' + motivo +
+                 '\nArquivo: ' + tipo + '\n\nDeseja enviar a foto assim mesmo, sem recorte?')) return;
     await uploadArquivo(colabId, docId, file);
     await carregarVisaoColaborador(colabId);
     return;
   }
+
+  try {
 
   scanMontarTela();
   const W = canvas.width, H = canvas.height, m = 0.08;
@@ -3646,6 +3679,10 @@ async function scanIniciar(colabId, docId, file, origem) {
   document.body.style.overflow = 'hidden';
   scanEtapa(1);
   scanDetectar();
+  } catch (e) {
+    scanFechar();
+    alert('Erro ao abrir o scanner: ' + ((e && e.message) || e) + '\n\nTire um print desta mensagem e envie ao RH.');
+  }
 }
 
 async function scanDetectar() {
@@ -3667,7 +3704,9 @@ async function scanDetectar() {
   c.width = Math.round(SCAN.W * k); c.height = Math.round(SCAN.H * k);
   const ctx = c.getContext('2d');
   ctx.drawImage(SCAN.canvas, 0, 0, c.width, c.height);
-  const cantos = scanDetectarCantos(cv, ctx.getImageData(0, 0, c.width, c.height));
+  let cantos = null;
+  try { cantos = scanDetectarCantos(cv, ctx.getImageData(0, 0, c.width, c.height)); }
+  catch (e) { console.warn('Scanner: detecção falhou', e); }
   if (!SCAN.aberto || sessao !== SCAN.sessao) return;
   if (cantos) {
     if (!SCAN.tocado) {
